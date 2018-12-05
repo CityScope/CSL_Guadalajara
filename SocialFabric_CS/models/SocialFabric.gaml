@@ -252,6 +252,7 @@ species suburb{
 }
 
 species road {
+	string type;
 	string road_type;
 	string name_str;
 	string condition;
