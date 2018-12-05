@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="CGImap 0.6.0 (25396 thorn-02.openstreetmap.org)" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
+	<bounds minlat="20.6235000" minlon="-103.4916000" maxlat="20.6582000" maxlon="-103.4368000"/>
+	<node id="4831280820" visible="true" version="1" changeset="48342845" timestamp="2017-05-02T18:07:22Z" user="rodatirod" uid="1045127" lat="20.6419743" lon="-103.4538329">
+		<tag k="name" v="Miramar"/>
+		<tag k="place" v="suburb"/>
+		<tag k="population" v="28219"/>
+	</node>
+	<node id="4831281925" visible="true" version="1" changeset="48342845" timestamp="2017-05-02T18:07:27Z" user="rodatirod" uid="1045127" lat="20.6466930" lon="-103.4676087">
+		<tag k="name" v="La Floresta del Colli"/>
+		<tag k="place" v="suburb"/>
+		<tag k="population" v="2738"/>
+	</node>
+	<node id="4831281728" visible="true" version="1" changeset="48342845" timestamp="2017-05-02T18:07:22Z" user="rodatirod" uid="1045127" lat="20.6217723" lon="-103.4555066">
+		<tag k="name" v="Santa Ana Tepetitlán"/>
+		<tag k="place" v="suburb"/>
+		<tag k="population" v="23785"/>
+	</node>
+</osm>
