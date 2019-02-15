@@ -111,7 +111,8 @@ global torus:false{
 			
 				if(highway_str != nil and highway_str != "" and highway_str != "turning_circle" and highway_str != "traffic_signals" and highway_str != "bus_stop"){
 					
-					create road with: [shape::shape, type:: highway_str, name_str:: name_str];
+					create road with: [shape::shape, road_type:: highway_str, name:: name_str];
+					//create road;
 					if self.name_str = nil{
 						self.name_str <- "no_name";
 					}
@@ -176,7 +177,7 @@ global torus:false{
 	
 			if caseStudy = 0{
 				self.condition <- "CNE";
-				list<gis_data> coincidences <- gis_data where(lower_case(each.name_str) = lower_case(self.name_str));
+				list<gis_data> coincidences <- gis_data where(lower_case(each.name) = lower_case(self.name));
 				if length(coincidences) > 0 {
 					
 					gis_data gis_data_element <- one_of(coincidences);
@@ -227,7 +228,7 @@ global torus:false{
 			create suburb from: suburbs_file with: [name_str::string(read("name")),place::string(read("place")),population::int(read("population"))];
 		}
 		//Create agents representing people
-		numAgents <- 1000;
+		numAgents <- 500;
 		create people number:numAgents{
 			add node(self) to: Encounters;
 		}
@@ -252,9 +253,8 @@ species suburb{
 }
 
 species road {
-	string type;
 	string road_type;
-	string name_str;
+	string name;
 	string condition;
 	float weight_value;
 }
@@ -358,7 +358,7 @@ species people skills:[moving]{
 	}
 	
 	aspect name:standard_aspect{
-		draw geometry:circle(agentsSize#m) color:#blue;			
+		draw geometry:circle(agentsSize#m) color:rgb (241, 216, 69,255);			
 	}
 	
 	aspect sphere{
@@ -373,7 +373,7 @@ experiment simulation type:gui{
 	
 	parameter "perception" var: distanceForInteraction <- 50.0#m category:"Agents";
 	parameter "speed" var:agentsSpeed <- 5.0 category:"Agents";
-	parameter "Agents-size" var:agentsSize <- 15 category:"Agents";
+	parameter "Agents-size" var:agentsSize <- 10 category:"Agents";
 	parameter "Edges-Width" var:edgesWidth <- 5 category:"Agents";
 	parameter "Show People" var:showPeople <- false category: "GUI";
 	parameter "Show Interactions" var:showInteractions <- true category: "GUI";
