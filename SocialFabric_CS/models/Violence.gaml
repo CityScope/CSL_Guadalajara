@@ -69,15 +69,32 @@ grid cell width:xCells height:yCells{
 		current_people_inside <- 0;
 		current_people_inside <- length(people inside self);
 	}
+	aspect default{
+		if(current_people_inside>=5){
+		    if(tension>0){
+				draw shape color:rgb (255, 0, 0,255);	
+			}
+			else{
+				draw shape color:rgb (255, 128, 0,255);
+			}
+		}
+	}
 }
 
 species road{
 	string name;
 	string type;
+	
+	aspect default{
+		draw shape color:rgb (121, 121, 121,255);
+	}
 }
 
 species suburb{
 	string name;
+	aspect default{
+		draw square(30) depth:10 color:rgb (145, 101, 197,255);
+	}
 }
 
 species people skills:[moving]{
@@ -136,51 +153,28 @@ species people skills:[moving]{
 	action updateProperties{
 		current_color <- possibleOffender?rgb (210, 23, 23,255):rgb (11, 157, 44,255); 
 	}
+	
+	aspect default{
+		if (victimized = true){
+	      draw circle(40) color:rgb (255, 0, 255,255) ;
+		}
+		else{
+		  draw circle(20) color:current_color;	
+		}
+	}
 }
 
 experiment experiment1 type:gui{
 	output{
-		display scenario{
-			graphics "roads" refresh:false{
-				rgb road_Color <- rgb (121, 121, 121,255);
-				loop element over:road{
-					draw element color:road_Color width:1.0;
-				}
-			}
-			graphics "neighborhood" refresh:false{
-				loop element over:suburb{
-					draw square(30) depth:10 color:rgb (145, 101, 197,255) at:element.location;
-				}
-			}
-			graphics "people"{
-				loop element over:people{
-					
-					if (element.victimized = true){
-						draw circle(40) color:rgb (255, 0, 255,255) at:element.location;
-					}
-					else{
-						draw circle(20) color:element.current_color at:element.location;	
-					}
-				}
-			}
+		layout #split;
+		display scenario type:opengl{
+			species road;
+			species suburb;
+			species people;
 		}
 		display grid{
-			graphics "roads"{
-				rgb road_Color <- rgb (121, 121, 121,255);
-				loop element over:road{
-					draw element color:road_Color width:1.0;
-				}
-			}
-			graphics "cells"{
-				loop element over:cell where (each.current_people_inside>=5){
-					if(element.tension>0){
-						draw rectangle(world.shape.width/yCells,world.shape.height/xCells) color:rgb (255, 0, 0,255) at:element.location;	
-					}
-					else{
-						draw rectangle(world.shape.width/yCells,world.shape.height/xCells) color:rgb (255, 128, 0,255) at:element.location;
-					}
-				}
-			}
+			species road;
+			species cell;
 		}
 		display chart{
 			chart "Crimes" type:series{
