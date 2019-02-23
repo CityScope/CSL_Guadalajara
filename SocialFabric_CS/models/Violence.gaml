@@ -13,7 +13,7 @@ global torus:false{
 	int crimes;
 	int xCells;
 	int yCells;
-	float mu;
+	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0; 
 	graph road_network;
 	file<geometry> roads <- osm_file("/gis/centinela/centinela.osm");
 	file neighborhood <- file("gis/centinela/neighborhood.shp");
@@ -53,7 +53,7 @@ species osm_agent{
 	string type_str;
 }
 
-grid cell width:xCells height:yCells{
+grid cell width:world.shape.width/100 height:world.shape.height/100{
 	int current_people_inside;
 	int tension;
 	rgb current_color; 
@@ -78,6 +78,9 @@ grid cell width:xCells height:yCells{
 				draw shape color:rgb (255, 128, 0,255);
 			}
 		}
+	}
+	aspect heatmap{
+      draw shape color:rgb(current_people_inside*50, 0,0) border:rgb(current_people_inside*50, 0, 0) empty:false;	
 	}
 }
 
@@ -167,16 +170,16 @@ species people skills:[moving]{
 experiment experiment1 type:gui{
 	output{
 		layout #split;
-		display scenario type:opengl{
+		display scenario type:opengl background:#black{
 			species road;
 			species suburb;
-			species people;
+			species people trace:10;
 		}
-		display grid{
+		display grid type:opengl background:#black{
+			species cell aspect:heatmap;
 			species road;
-			species cell;
 		}
-		display chart{
+		display chart background:#black{
 			chart "Crimes" type:series{
 				data "Crimes" value:crimes color:rgb (255, 0, 0,255);
 			}
