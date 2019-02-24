@@ -32,14 +32,8 @@ global torus:false{
 		}
 		road_network <- as_edge_graph(road);
 		create suburb from:neighborhood with:[name::string(read(name))];
-		create people number:200{
-			possibleOffender <- false;
-			do updateProperties;
-		}
-		create people number: 10{
-			possibleOffender <- true;
-			do updateProperties;
-		}
+		create people number:250;
+		create offender number: 20;
 	}
 	reflex update{
 		ask cell{
@@ -100,69 +94,80 @@ species suburb{
 	}
 }
 
-species people skills:[moving]{
+species offender skills:[moving]{
 	point target;
 	int clusteringAttractivity;
-	bool victimized;
-	bool possibleOffender; // Walker or Offender
-	bool offenderOnTheWay;
-	rgb current_color;
+	bool onTheWay;
 	init{
-		victimized <- false;
-		offenderOnTheWay <- false;
+		onTheWay <- false;
 		clusteringAttractivity <- rnd(1,5);
-		target 		<- any_location_in(one_of(road));
-		location 	<- any_location_in(one_of(road));
+		target <- any_location_in(one_of(road));
+		location <- any_location_in(one_of(road));
 	}
 	reflex updateState{
-		if(possibleOffender and !offenderOnTheWay){
+		if !onTheWay{
 			list<cell> attractiveCells <- cell where (each.current_people_inside >= clusteringAttractivity);
-			if(length(attractiveCells)>0){			
+			if length(attractiveCells)>0{
 				cell selected <- one_of(attractiveCells);
 				float delta <- distance_to(selected,self);
 				float maxDistance <- sqrt(world.shape.width^2+world.shape.height^2);
-				delta <- (delta / maxDistance)*100;
+				delta <- (delta/maxDistance)*100;
 				//float pi <- delta/100;
 				float pi <- delta^(-mu)*10;
-				float rndVar <- rnd(100) / 100;
-				write "rndVar: "+rndVar+" pi: "+pi;
+				float rndVar <- rnd(100)/100;
 				if(rndVar>pi){
 					target <- selected.location;
+					onTheWay <- true;
 				}
-				offenderOnTheWay <- true;
 			}
 		}
 	}
 	reflex move{
 		if(location = target or path_between(road_network,location,target)=nil){
-			location <- location + 1;
+			location <- location + 1; //sometimes it is not possible to find a path between the current agent and its target, move until it is foud.
 			target <- any_location_in(one_of(road));
-			if (possibleOffender = true){
-				do commitCrime;
-				offenderOnTheWay <- false;
-			}
+			do commitCrime;
+			onTheWay <- true;
 		}
 		do goto on:road_network target:target speed:10.0;
 	}
 	action commitCrime{
-		cell current <- one_of(cell at_distance(0));
+		//cell currentCell <- one_of(cell at_distance(0));
+		cell currentCell <- cell closest_to(self);
 		people victim <- one_of(people at_distance(50));
 		if(victim != nil){
 			victim.victimized <- true;
-			current.tension <- current.tension + 1;
+			currentCell.tension <- currentCell.tension + 1;
 			crimes <- crimes + 1;
 		}
 	}
-	action updateProperties{
-		current_color <- possibleOffender?rgb (210, 23, 23,255):rgb (11, 157, 44,255); 
+	aspect default{
+		draw circle(25) color:rgb (255, 255, 0,255);
+	}	
+}
+
+species people skills:[moving]{
+	point target;
+	bool victimized;
+	init{
+		victimized <- false;
+		target 		<- any_location_in(one_of(road));
+		location 	<- any_location_in(one_of(road));
+	}
+	reflex move{
+		if(location = target or path_between(road_network,location,target)=nil){
+			location <- location + 1;
+			target <- any_location_in(one_of(road));
+		}
+		do goto on:road_network target:target speed:10.0;
 	}
 	
 	aspect default{
 		if (victimized = true){
-	      draw circle(40) color:rgb (255, 0, 255,255) ;
+	      draw circle(35) color:rgb (255, 0, 255,255) ;
 		}
 		else{
-		  draw circle(20) color:current_color;	
+		  draw circle(15) color:rgb (10, 192, 83,255);	
 		}
 	}
 }
@@ -174,6 +179,7 @@ experiment experiment1 type:gui{
 			species road;
 			species suburb;
 			species people trace:10;
+			species offender trace:10;
 		}
 		display grid type:opengl background:#black{
 			species cell aspect:heatmap;
