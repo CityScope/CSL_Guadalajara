@@ -7,12 +7,8 @@
 
 model Violence
 
-/* Insert your model definition here */
-
 global torus:false{
 	int crimes;
-	int xCells;
-	int yCells;
 	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0; 
 	graph road_network;
 	file<geometry> roads <- osm_file("/gis/centinela/centinela.osm");
@@ -21,24 +17,17 @@ global torus:false{
 		
 	init{
 		crimes <- 0;
-		xCells <- 20;
-		yCells <- 20;
 		mu <- 1.0;
 		create osm_agent from:roads with:[name_str::string(read("name")), type_str::string(read("highway"))]{
 			if(type_str != nil and type_str != "" and type_str != "turning_circle" and type_str != "traffic_signals" and type_str != "bus_stop"){
-				create road with: [shape::shape, type::type_str, name::name_str];
+				create road with: [shape::shape, type::type_str, name_str::name_str];
 			}
 			do die;
 		}
 		road_network <- as_edge_graph(road);
-		create suburb from:neighborhood with:[name::string(read(name))];
+		create suburb from:neighborhood with:[name_str::string(read(name))];
 		create people number:250;
 		create offender number: 20;
-	}
-	reflex update{
-		ask cell{
-			do updateState;
-		}
 	}
 }
 
@@ -49,37 +38,25 @@ species osm_agent{
 
 grid cell width:world.shape.width/100 height:world.shape.height/100{
 	int current_people_inside;
-	int tension;
-	rgb current_color; 
+	int tension; //Tension is refered as the perception of security, and its value depends on social and environmental factors 
+				 // such as crimes commited and physical layer conditions. 
 	init{
-		current_color <- #black;
 		current_people_inside <- 0;
 		tension <- 0;
 	}
 	reflex main{
-		do updateState;
-	}
-	action updateState{
-		current_people_inside <- 0;
 		current_people_inside <- length(people inside self);
 	}
-	aspect default{
-		if(current_people_inside>=5){
-		    if(tension>0){
-				draw shape color:rgb (255, 0, 0,255);	
-			}
-			else{
-				draw shape color:rgb (255, 128, 0,255);
-			}
-		}
+	aspect crimeAttractiveAreas{
+		draw shape color:rgb(current_people_inside*50, 0,0) border:rgb(current_people_inside*50, 0, 0);	
 	}
-	aspect heatmap{
-      draw shape color:rgb(current_people_inside*50, 0,0) border:rgb(current_people_inside*50, 0, 0) empty:false;	
+	aspect tension{
+		draw shape color:rgb(tension*50, 0, 0) border:rgb(tension*50, 0, 0) empty:false;
 	}
 }
 
 species road{
-	string name;
+	string name_str;
 	string type;
 	
 	aspect default{
@@ -88,7 +65,7 @@ species road{
 }
 
 species suburb{
-	string name;
+	string name_str;
 	aspect default{
 		draw square(30) depth:10 color:rgb (145, 101, 197,255);
 	}
@@ -176,13 +153,13 @@ experiment experiment1 type:gui{
 	output{
 		layout #split;
 		display scenario type:opengl background:#black{
+			species cell aspect:crimeAttractiveAreas;
 			species road;
-			species suburb;
 			species people trace:10;
 			species offender trace:10;
 		}
 		display grid type:opengl background:#black{
-			species cell aspect:heatmap;
+			species cell aspect:tension;
 			species road;
 		}
 		display chart background:#black{
