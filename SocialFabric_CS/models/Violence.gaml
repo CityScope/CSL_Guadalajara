@@ -11,8 +11,9 @@ global torus:false{
 	int crimes;
 	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0; 
 	graph road_network;
-	file<geometry> roads <- osm_file("/gis/centinela/centinela.osm");
-	file neighborhood <- file("gis/centinela/neighborhood.shp");
+	string case_study <- "tijuana" ;
+	file<geometry> roads <- osm_file("/gis/"+case_study + "/" +case_study +".osm");
+	//file neighborhood <- file("gis/case_study/neighborhood.shp");
 	geometry shape <- envelope(roads);
 		
 	init{
@@ -25,7 +26,7 @@ global torus:false{
 			do die;
 		}
 		road_network <- as_edge_graph(road);
-		create suburb from:neighborhood with:[name_str::string(read(name))];
+		//create suburb from:neighborhood with:[name_str::string(read(name))];
 		create people number:250;
 		create offender number: 20;
 	}
@@ -149,23 +150,38 @@ species people skills:[moving]{
 	}
 }
 
+experiment raw type:gui{
+	output{
+		display view type:opengl background:#black{
+			species road;
+			species people;
+			species offender;
+		}
+	}
+}
+
 experiment experiment1 type:gui{
 	output{
 		layout #split;
-		display scenario type:opengl background:#black{
+		display view type:opengl background:#black{
+			species road;
+			species people trace:10;
+			species offender trace:10;
+		}
+		display crime type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
 			species road;
 			species people trace:10;
 			species offender trace:10;
 		}
-		display grid type:opengl background:#black{
+		display tension type:opengl background:#black{
 			species cell aspect:tension;
 			species road;
 		}
-		display chart background:#black{
+		/*display chart background:#black{
 			chart "Crimes" type:series{
 				data "Crimes" value:crimes color:rgb (255, 0, 0,255);
 			}
-		}
+		}*/
 	}
 }
