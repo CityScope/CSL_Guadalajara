@@ -12,7 +12,7 @@ global torus:false{
 	
 	//Declaration of the global variables
 	//Model parameters 
-	int numAgents <- 1000;
+	int numAgents <- 500;
 	bool allowRoadsKnowledge <- true;
 	float agentSpeed <- 1.4; //This is the mean walk speed of a person.
 	int agentSize <- 15;
@@ -25,7 +25,7 @@ global torus:false{
 	float distanceForInteraction;
 	graph road_network;
 	map<road, float> weight_map;
-	list<string> usedRoads;
+	list<int> usedRoads;
 	
 	date starting_date <- date([2019,7,1,20,0,0]);
 
@@ -42,17 +42,14 @@ global torus:false{
 	float networkDensity <- 0.0;
 	float maxNumOfEdges;
 	
-	reflex mainLoop{
-		//do updateGraph();
-		//save (name+": "+current_date) type:text to:outputFile rewrite:false;
-		if current_date - starting_date >= 3600{
-			int used <- 0;
-			used <- length(usedRoads);
-			//used <- length(road where(each overlaps geometry(people))); //Counting the number of streets used currently by people. (Represented in GAMA as spacial overlapping between street species and people species. 
-			save used type:text to:outputFile rewrite:false;
-			if dodie{do die;}
+	reflex output when: time=3600{
+		int tmpCounter <- 0;
+		loop i from:0 to: length(usedRoads)-1{
+			if usedRoads[i]=1{	
+				tmpCounter <- tmpCounter + 1;
+			}
 		}
-		//networkDensity <- stepEdges / maxNumOfEdges;
+		save tmpCounter type:text to:outputFile rewrite:false;
 	}
 	action updateGraph{
 		Encounters <- graph([]);
@@ -73,10 +70,8 @@ global torus:false{
 		create places from: places_file with:[id::string(read("id")),name_str::string(read("nom_estab")),economic_activity::string(read(""))];			
 		weight_map <- road as_map(each::each.valuation);
 		road_network <- as_edge_graph(road);
-		usedRoads <- [];
+		usedRoads <- list_with(length(road_network),-1);
 		create people number:numAgents{ add node(self) to: Encounters; }
-		do updateGraph();
-		maxNumOfEdges <- (numAgents * (numAgents - 1)) / 2;
 	}
 }
 
@@ -235,11 +230,13 @@ species people skills:[moving]{
 			}
 			ask targets{ location<-myself.target; }
 		}
-		if current_edge=nil {write "current edge is nil";}
+		if current_edge=nil or string(current_edge)="" {write name+": Current edge is nil";}
 		else{
 			//write length(usedRoads);
-			//if !(usedRoads contains string(current_edge)){add string(current_edge) to: usedRoads;}
-			add string(current_edge) to: usedRoads;	
+			string tmpStr <- replace(string(current_edge),"road(","");
+			tmpStr <- replace(tmpStr,")","");
+			int tmpInt <- int(tmpStr);
+			if !(usedRoads contains tmpInt){usedRoads[tmpInt] <- 1;}
 		}
 		//usedRoads(tmpRoad) <- 1;
 		/*pEncounters <- people at_distance(distanceForInteraction) where(each != self);
@@ -249,7 +246,7 @@ species people skills:[moving]{
 	aspect name:default{ draw geometry:circle(agentSize#m) color:rgb (255, 242, 9,255); }
 }
 
-experiment simulation1 type:gui{
+experiment GUI type:gui{
 	parameter var:dodie <- true;
 	output{
 		layout #split;
@@ -267,9 +264,6 @@ experiment simulation1 type:gui{
 		}*/
 	}
 }
-experiment StreetsUsage{
-	parameter var:dodie <- true;
-	/*init{
-		create simulation with:[dodie:true];
-	}*/		
+experiment Batch_StreetsUsage type:batch repeat:10 keep_seed:true until:(time>3600){
+	
 }
