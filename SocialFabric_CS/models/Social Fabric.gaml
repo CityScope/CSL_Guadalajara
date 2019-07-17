@@ -13,7 +13,7 @@ global torus:false{
 	//Declaration of the global variables
 	//Model parameters 
 	int numAgents <- 500;
-	bool allowRoadsKnowledge <- true;
+	bool allowRoadsKnowledge <- false;
 	float agentSpeed <- 1.4; //This is the mean walk speed of a person.
 	int agentSize <- 15;
 	bool dodie; //The simulation has to die when the file is written.
