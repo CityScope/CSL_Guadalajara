@@ -9,6 +9,7 @@
 model SocialFabric
 
 global torus:false{
+	//Physical encounters_
 	
 	//Declaration of the global variables
 	//Model parameters 
