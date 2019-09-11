@@ -36,10 +36,5 @@ It can be now merged into the repository.
 
 
 
-<div class="bg-blue-light mb-2">
-  .text-gray-dark on .bg-blue-light
-</div>
-
-
 
 
