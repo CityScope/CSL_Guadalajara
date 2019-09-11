@@ -9,9 +9,8 @@ https://docs.google.com/document/d/1pGR2nZAFjOmYgx4lRgj9_hp9zRQZjznpVr-no6Qlsls/
 If you’re a collaborator, Git Clone the project. Don’t fork it.
 
 Open Terminal and change the current working directory to the location where you want the cloned directory to be made.
-+
-<br />Type **git clone _URL of the project_**
-+
+<br />
+&lt;p&gt;Type **git clone _URL of the project_**&lt;/p&gt;
 
 ### Collaborating
 When working on the same project with multiple people is needed to keep Master deployable. Create new branches for new features and it will be merged when it's ready to be reviewed by someone you're collaborating with.
