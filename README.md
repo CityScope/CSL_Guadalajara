@@ -5,17 +5,29 @@ Google Doc Kick Off Document
 https://docs.google.com/document/d/1pGR2nZAFjOmYgx4lRgj9_hp9zRQZjznpVr-no6Qlsls/edit?ts=5c1a59e6
 
 
-#### 1. Clone the repository
-If you’re a collaborator, Git Clone the project. Don’t fork it.
-
+### Clone the repository
+If you’re a collaborator, Git Clone the project instead of fork it.
 Open Terminal and change the current working directory to the location where you want the cloned directory to be made.
+<br />
+  Type **git clone _URL of the project_**
 
-Type git clone, and then paste the URL of the project.
+### Working with GAMA files
+Create new branches for new features and they will be merged when they're ready.
+<br />  Type  **git checkout -b “New_branch_name”**
 
-#### 2. Collaborating
-When working on the project is needed to keep Master deployable. 
-</br>Create new branches for new features and the person in charge of handling merging will merge them into Master when they’re completed.
+  GAMA Platform http://gama-platform.org; Download: https://gama-platform.github.io/download <br />
+Open GAMA files and once the modifications are done, commit changes locally: <br />
+Type **git add _new/modified/deleted.._**
+<br />  Type  **git commit -m "_Changes_"**
 
-Type git checkout -b “New_branch_name”
+Push your changes to remote branch:
+<br />  Type  **git push origin _New_branch_name_**
+
+### Open a pull request
+On GitHub, navigate to the main page of the repository. On the menu, choose the branch that contains your commits.
+<br />  Click  **New Pull Request**
+
+Select the branch you'd like to merge your changes into and the branch you made your changes in. 
+<br />  Click **Create New Pull Request**. It can be now merged into the repository.
 
 
