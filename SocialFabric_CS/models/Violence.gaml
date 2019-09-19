@@ -11,7 +11,7 @@ global torus:false{
 	int crimes;
 	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0; 
 	graph road_network;
-	string case_study <- "tijuana" ;
+	string case_study <- "centinela" ;
 	file<geometry> roads <- osm_file("/gis/"+case_study + "/" +case_study +".osm");
 	//file neighborhood <- file("gis/case_study/neighborhood.shp");
 	geometry shape <- envelope(roads);
@@ -37,7 +37,7 @@ species osm_agent{
 	string type_str;
 }
 
-grid cell width:world.shape.width/100 height:world.shape.height/100{
+grid cell width:world.shape.width/150 height:world.shape.height/150{
 	int current_people_inside;
 	int tension; //Tension is refered as the perception of security, and its value depends on social and environmental factors 
 				 // such as crimes commited and physical layer conditions. 
@@ -49,7 +49,7 @@ grid cell width:world.shape.width/100 height:world.shape.height/100{
 		current_people_inside <- length(people inside self);
 	}
 	aspect crimeAttractiveAreas{
-		draw shape color:rgb(current_people_inside*50, 0,0) border:rgb(current_people_inside*50, 0, 0);	
+		draw shape color:rgb(current_people_inside*100, 0,0) border:rgb(current_people_inside*100, 0, 0);	
 	}
 	aspect tension{
 		draw shape color:rgb(tension*50, 0, 0) border:rgb(tension*50, 0, 0) empty:false;
@@ -62,6 +62,15 @@ species road{
 	
 	aspect default{
 		draw shape color:rgb (121, 121, 121,255);
+		/*if name_str = "Calzada del Vergel"{
+			draw shape color:#blue width:5.0;
+		}
+		if name_str = "Camino a la Mesa"{
+			draw shape color:#red width:5.0;
+		}
+		if name_str = "Crisantemos"{
+			draw shape color:#orange width:5.0;
+		}*/
 	}
 }
 
@@ -165,14 +174,14 @@ experiment experiment1 type:gui{
 		layout #split;
 		display view type:opengl background:#black{
 			species road;
-			species people trace:10;
-			species offender trace:10;
+			species people trace:0;
+			species offender trace:0;
 		}
 		display crime type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
 			species road;
-			species people trace:10;
-			species offender trace:10;
+			//species people trace:0;
+			//species offender trace:0;
 		}
 		display tension type:opengl background:#black{
 			species cell aspect:tension;
