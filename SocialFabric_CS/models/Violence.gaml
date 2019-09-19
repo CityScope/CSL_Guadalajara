@@ -8,12 +8,17 @@
 model Violence
 
 global torus:false{
+
+	string case_study parameter: 'Case Study:' category: 'Initialization' <-"centinela" among:["centinela", "miramar", "tijuana"];
+	int  nbPeople parameter: 'Number of people:' category: 'Initialization' <- 250 min: 100 max: 1000;  
+	int  nbOffender parameter: 'Number of offender:' category: 'Initialization' <- 20 min: 10 max: 100;
+	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 150 min: 50 max: 1000;  
+	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0;
 	int crimes;
-	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0; 
-	graph road_network;
-	string case_study <- "centinela" ;
+	
+	
 	file<geometry> roads <- osm_file("/gis/"+case_study + "/" +case_study +".osm");
-	//file neighborhood <- file("gis/case_study/neighborhood.shp");
+	graph road_network;
 	geometry shape <- envelope(roads);
 		
 	init{
@@ -26,8 +31,7 @@ global torus:false{
 			do die;
 		}
 		road_network <- as_edge_graph(road);
-		//create suburb from:neighborhood with:[name_str::string(read(name))];
-		create people number:250;
+		create people number:nbPeople;
 		create offender number: 20;
 	}
 }
@@ -37,7 +41,7 @@ species osm_agent{
 	string type_str;
 }
 
-grid cell width:world.shape.width/150 height:world.shape.height/150{
+grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	int current_people_inside;
 	int tension; //Tension is refered as the perception of security, and its value depends on social and environmental factors 
 				 // such as crimes commited and physical layer conditions. 
@@ -45,7 +49,7 @@ grid cell width:world.shape.width/150 height:world.shape.height/150{
 		current_people_inside <- 0;
 		tension <- 0;
 	}
-	reflex main{
+	reflex updateNbPeople{
 		current_people_inside <- length(people inside self);
 	}
 	aspect crimeAttractiveAreas{
@@ -59,25 +63,8 @@ grid cell width:world.shape.width/150 height:world.shape.height/150{
 species road{
 	string name_str;
 	string type;
-	
 	aspect default{
 		draw shape color:rgb (121, 121, 121,255);
-		/*if name_str = "Calzada del Vergel"{
-			draw shape color:#blue width:5.0;
-		}
-		if name_str = "Camino a la Mesa"{
-			draw shape color:#red width:5.0;
-		}
-		if name_str = "Crisantemos"{
-			draw shape color:#orange width:5.0;
-		}*/
-	}
-}
-
-species suburb{
-	string name_str;
-	aspect default{
-		draw square(30) depth:10 color:rgb (145, 101, 197,255);
 	}
 }
 
@@ -159,16 +146,6 @@ species people skills:[moving]{
 	}
 }
 
-experiment raw type:gui{
-	output{
-		display view type:opengl background:#black{
-			species road;
-			species people;
-			species offender;
-		}
-	}
-}
-
 experiment experiment1 type:gui{
 	output{
 		layout #split;
@@ -177,7 +154,7 @@ experiment experiment1 type:gui{
 			species people trace:0;
 			species offender trace:0;
 		}
-		display crime type:opengl background:#black{
+		display risk type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
 			species road;
 			//species people trace:0;
@@ -192,5 +169,28 @@ experiment experiment1 type:gui{
 				data "Crimes" value:crimes color:rgb (255, 0, 0,255);
 			}
 		}*/
+	}
+}
+
+experiment multi_city type: gui {
+	init {
+		create simulation with: [case_study::"miramar"];
+		create simulation with: [case_study::"tijuana"];
+	}
+	output {
+		display view1  type:opengl  {	
+			species road;
+			species people;
+			species offender;
+		}	
+	}
+	permanent {
+		display Comparison background: #white {
+			chart "Crime" type: series {
+				loop s over: simulations {
+					data string(s.case_study) value: s.crimes color: s.color marker: false style: line thickness:4;
+				}
+			}
+		}
 	}
 }
