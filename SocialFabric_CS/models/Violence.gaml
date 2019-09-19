@@ -14,7 +14,14 @@ global torus:false{
 	int  nbOffender parameter: 'Number of offender:' category: 'Initialization' <- 20 min: 10 max: 100;
 	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 150 min: 50 max: 1000;  
 	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0;
-	int crimes;
+	int offenderPerception parameter: 'Offender Perception Distance:' category: 'Model' <- 50 min: 10 max: 500;
+	float offenderSpeed parameter: 'Offender Speed:' category: 'Model' <- 10.0 min: 5.0 max: 15.0;
+	float peopleSpeed parameter: 'People Speed:' category: 'Model' <- 10.0 min: 5.0 max: 15.0;
+	bool showPerception parameter: "Show Perception" category: "Visualization" <-false;
+	bool showNbCrime parameter: "Show Number of Crime" category: "Visualization" <-false;
+	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
+	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
+	int totalCrimes;
 	
 	
 	file<geometry> roads <- osm_file("/gis/"+case_study + "/" +case_study +".osm");
@@ -22,7 +29,7 @@ global torus:false{
 	geometry shape <- envelope(roads);
 		
 	init{
-		crimes <- 0;
+		totalCrimes <- 0;
 		mu <- 1.0;
 		create osm_agent from:roads with:[name_str::string(read("name")), type_str::string(read("highway"))]{
 			if(type_str != nil and type_str != "" and type_str != "turning_circle" and type_str != "traffic_signals" and type_str != "bus_stop"){
@@ -72,8 +79,11 @@ species offender skills:[moving]{
 	point target;
 	int clusteringAttractivity;
 	bool onTheWay;
+	int nbCrimeCommited;
+	path my_path;
 	init{
 		onTheWay <- false;
+		nbCrimeCommited<-0;
 		clusteringAttractivity <- rnd(1,5);
 		target <- any_location_in(one_of(road));
 		location <- any_location_in(one_of(road));
@@ -85,8 +95,9 @@ species offender skills:[moving]{
 				cell selected <- one_of(attractiveCells);
 				float delta <- distance_to(selected,self);
 				float maxDistance <- sqrt(world.shape.width^2+world.shape.height^2);
+				//Levy Equation. 
+				//FIXME: Why not just chosing the closest among attractiveCells
 				delta <- (delta/maxDistance)*100;
-				//float pi <- delta/100;
 				float pi <- delta^(-mu)*10;
 				float rndVar <- rnd(100)/100;
 				if(rndVar>pi){
@@ -98,25 +109,42 @@ species offender skills:[moving]{
 	}
 	reflex move{
 		if(location = target or path_between(road_network,location,target)=nil){
-			location <- location + 1; //sometimes it is not possible to find a path between the current agent and its target, move until it is foud.
-			target <- any_location_in(one_of(road));
 			do commitCrime;
-			onTheWay <- true;
+			onTheWay <- false;
 		}
-		do goto on:road_network target:target speed:10.0;
+		my_path <- self goto (on:road_network, target:target, speed:offenderSpeed, return_path: true);
+		//do goto on:road_network target:target speed:offenderSpeed;
 	}
 	action commitCrime{
-		//cell currentCell <- one_of(cell at_distance(0));
 		cell currentCell <- cell closest_to(self);
-		people victim <- one_of(people at_distance(50));
+		people victim <- one_of(people at_distance(offenderPerception));
 		if(victim != nil){
 			victim.victimized <- true;
 			currentCell.tension <- currentCell.tension + 1;
-			crimes <- crimes + 1;
+			totalCrimes <- totalCrimes + 1;
+			nbCrimeCommited<-nbCrimeCommited+1;
 		}
 	}
 	aspect default{
-		draw circle(25) color:rgb (255, 255, 0,255);
+		if (onTheWay){
+		  draw circle(25) color:rgb (255, 255, 0);	
+		}else{
+		  draw circle(10) color:rgb (255, 255, 0);		
+		}
+		if(showPerception){
+			draw circle(offenderPerception) empty:true color:#red;
+			draw circle(offenderPerception) color:rgb(255,0,0,0.5);
+		}
+		if(showNbCrime){
+			draw "crime:" + nbCrimeCommited size:6#px color:#white;
+		}
+		if(showOffenderTarget){
+			draw line(location,target) width:0.5 color:rgb(255,255,0.5);
+		}
+		if(showOffenderPath){
+	 	 	draw current_path.shape color: rgb(255,255,0.5);
+		}
+		
 	}	
 }
 
@@ -133,7 +161,7 @@ species people skills:[moving]{
 			location <- location + 1;
 			target <- any_location_in(one_of(road));
 		}
-		do goto on:road_network target:target speed:10.0;
+		do goto on:road_network target:target speed:peopleSpeed;
 	}
 	
 	aspect default{
@@ -142,6 +170,18 @@ species people skills:[moving]{
 		}
 		else{
 		  draw circle(15) color:rgb (10, 192, 83,255);	
+		}
+	}
+}
+
+
+experiment dev type:gui{
+	output{
+		layout #split;
+		display view type:opengl background:#black{
+			species road;
+			species people;
+			species offender;
 		}
 	}
 }
@@ -157,18 +197,16 @@ experiment experiment1 type:gui{
 		display risk type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
 			species road;
-			//species people trace:0;
-			//species offender trace:0;
 		}
 		display tension type:opengl background:#black{
 			species cell aspect:tension;
 			species road;
 		}
-		/*display chart background:#black{
+		display chart background:#black{
 			chart "Crimes" type:series{
-				data "Crimes" value:crimes color:rgb (255, 0, 0,255);
+				data "Crimes" value:totalCrimes color:rgb (255, 0, 0,255);
 			}
-		}*/
+		}
 	}
 }
 
@@ -188,7 +226,7 @@ experiment multi_city type: gui {
 		display Comparison background: #white {
 			chart "Crime" type: series {
 				loop s over: simulations {
-					data string(s.case_study) value: s.crimes color: s.color marker: false style: line thickness:4;
+					data string(s.case_study) value: s.totalCrimes color: s.color marker: false style: line thickness:4;
 				}
 			}
 		}
