@@ -1,6 +1,6 @@
 /***
 * Name: Violence
-* Author: gamalielpalomo
+* Author: Gamaliel Palomo, Arnaud Grignard
 * Description: This GAMA model implements a ABM model for violence based on the Levy equation for movements.
 * Tags: Tag1, Tag2, TagN
 ***/
@@ -50,8 +50,10 @@ species osm_agent{
 
 grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	int current_people_inside;
-	int tension; //Tension is refered as the perception of security, and its value depends on social and environmental factors 
-				 // such as crimes commited and physical layer conditions. 
+	//Tension is refered as the perception of security, and its value depends on social and environmental factors 
+	// such as crimes commited and physical layer conditions. 
+	int tension; 
+				 
 	init{
 		current_people_inside <- 0;
 		tension <- 0;
@@ -158,7 +160,6 @@ species people skills:[moving]{
 	}
 	reflex move{
 		if(location = target or path_between(road_network,location,target)=nil){
-			location <- location + 1;
 			target <- any_location_in(one_of(road));
 		}
 		do goto on:road_network target:target speed:peopleSpeed;
@@ -186,13 +187,13 @@ experiment dev type:gui{
 	}
 }
 
-experiment experiment1 type:gui{
+experiment city type:gui{
 	output{
 		layout #split;
 		display view type:opengl background:#black{
 			species road;
-			species people trace:0;
-			species offender trace:0;
+			species people;
+			species offender;
 		}
 		display risk type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
