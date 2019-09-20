@@ -11,14 +11,15 @@ model SocialFabric
 global torus:false{
 
 	//Model parameters 
-	string studyCase;
+	string case_study parameter: "Case study:" category: "Initialization" <-"centinela" among:["centinela", "miramar", "tijuana"];
+	int interactionDistance parameter: "Interaction distance" category:"Model" <- 50 min: 50 max: 500;
+	int nbAgents parameter: "Number of agents" category: "Initialization" <-200 min:50 max: 1000;
+	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
+	bool allowRoadsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
+	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
 	int experimentID;
-	int numAgents;
-	bool allowRoadsKnowledge;
-	float agentSpeed; //This is the mean walk speed of a person.
 	int agentSize <- 15;
 	string outputFile;
-	int interactionDistance;
 	
 	int timeStep;
 	graph road_network;
@@ -26,12 +27,12 @@ global torus:false{
 	list<int> usedRoads;
 	float encountersSum<-0.0;
 
-	date starting_date <- date([2019,9,19,20,0,0]);
+	date starting_date <- date("now");
 
-	file roads_file <- file("/gis/"+studyCase+"/roads.shp");
-	file blocks_file <- file("/gis/"+studyCase+"/blocks.shp");
-	file block_fronts_file <- file("/gis/"+studyCase+"/block_fronts.shp");
-	file places_file <- file("/gis/"+studyCase+"/places.shp");
+	file roads_file <- file("/gis/"+case_study+"/roads.shp");
+	file blocks_file <- file("/gis/"+case_study+"/blocks.shp");
+	file block_fronts_file <- file("/gis/"+case_study+"/block_fronts.shp");
+	file places_file <- file("/gis/"+case_study+"/places.shp");
 	geometry shape <- envelope(roads_file);
 	
 	//string outputFile <- "/output/Encounters.txt";
@@ -45,7 +46,6 @@ global torus:false{
 	}
 	reflex output when: experimentID = 1 and time>0{
 		encountersSum <- encountersSum + length(edge_agent);
-		write encountersSum/time;
 		if time=600{save encountersSum/time type:text to:outputFile rewrite:false;}
 	}
 	init{
@@ -60,7 +60,7 @@ global torus:false{
 		weight_map <- road as_map(each::each.valuation);
 		road_network <- as_edge_graph(road);
 		usedRoads <- list_with(length(road_network),-1);
-		create people number:numAgents;
+		create people number:nbAgents;
 		write "Total of places: "+length(places);
 		write "Total of roads: "+length(road); 
 	}
@@ -191,6 +191,7 @@ species people skills:[moving] parent: graph_node edge_species: edge_agent{
 		else{ shortestPath <- path_between(road_network, location, target); }
 	}
 	reflex move{
+		speed <- agentSpeed;
 		do follow path:shortestPath move_weights: shortestPath.edges as_map(each::each.perimeter);
 		if(location = target){
 			do updateTarget;
@@ -217,30 +218,21 @@ species people skills:[moving] parent: graph_node edge_species: edge_agent{
 species edge_agent parent: base_edge {aspect default {draw shape color:#blue;}}
 
 experiment GUI type:gui{
-	parameter "Study_Case" var:studyCase <- "centinela";
 	parameter "Experiment_ID" var:experimentID <- 2;
-	parameter "Number_of_Agents" var:numAgents <- 500;
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- false;
-	parameter "Agents_Speed" var:agentSpeed <- 1.4;
 	output{
 		layout #split;
 		display Main type:opengl ambient_light:50{
 			species people aspect:default;
 			species block aspect:default refresh:false;
-			//species places aspect:default;
-			//species targets aspect:default;
 			species road aspect:default refresh:false;
 		}
 	}
 }
 experiment GUI_Encounters type:gui until:(time>3600){
-	parameter "Study_Case" var:studyCase <- "miramar";
 	parameter "Output_File" var:outputFile <- "/output/Encounters.txt";
-	parameter "Interaction_Distance" var:interactionDistance <- 100;
 	parameter "Experiment_ID" var:experimentID <- 1;
-	parameter "Number_of_Agents" var:numAgents <- 500;
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- true;
-	parameter "Agents_Speed" var:agentSpeed <- 1.4;
 	output{
 		display Main type:opengl ambient_light:50{
 			species block aspect:default refresh:false;
@@ -250,19 +242,12 @@ experiment GUI_Encounters type:gui until:(time>3600){
 	}
 }
 experiment Batch_Encounters type:batch repeat:1 keep_seed:true until:(time>3600){
-	parameter "Study_Case" var:studyCase <- "miramar";
 	parameter "Output_File" var:outputFile <- "/output/Encounters.txt";
-	parameter "Interaction_Distance" var:interactionDistance <- 100;
 	parameter "Experiment_ID" var:experimentID <- 1;
-	parameter "numAgents" var:numAgents <- 500;
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- true;
-	parameter "Agents_Speed" var:agentSpeed <- 1.4;
 }
 experiment Batch_StreetsUsage type:batch repeat:100 keep_seed:true until:(time>3600){
-	parameter "Study_Case" var:studyCase <- "miramar";
 	parameter "Output_File" var:outputFile <- "/output/StreetsUsage.txt";
 	parameter "Experiment_ID" var:experimentID <- 0;
-	parameter "numAgents" var:numAgents <- 500;
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- true;
-	parameter "Agents_Speed" var:agentSpeed <- 1.4;
 }
