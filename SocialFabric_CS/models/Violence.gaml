@@ -22,6 +22,7 @@ global torus:false{
 	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
 	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
 	int totalCrimes;
+	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
 	
 	
 	file<geometry> roads <- osm_file("/gis/"+case_study + "/" +case_study +".osm");
@@ -82,7 +83,6 @@ species offender skills:[moving]{
 	int clusteringAttractivity;
 	bool onTheWay;
 	int nbCrimeCommited;
-	path my_path;
 	init{
 		onTheWay <- false;
 		nbCrimeCommited<-0;
@@ -114,8 +114,7 @@ species offender skills:[moving]{
 			do commitCrime;
 			onTheWay <- false;
 		}
-		my_path <- self goto (on:road_network, target:target, speed:offenderSpeed, return_path: true);
-		//do goto on:road_network target:target speed:offenderSpeed;
+		do goto on:road_network target:target speed:offenderSpeed;
 	}
 	action commitCrime{
 		cell currentCell <- cell closest_to(self);
@@ -129,9 +128,9 @@ species offender skills:[moving]{
 	}
 	aspect default{
 		if (onTheWay){
-		  draw circle(25) color:rgb (255, 255, 0);	
+		  draw circle(25) color:color_type["offender"];	
 		}else{
-		  draw circle(10) color:rgb (255, 255, 0);		
+		  draw circle(10) color:color_type["offender"];		
 		}
 		if(showPerception){
 			draw circle(offenderPerception) empty:true color:#red;
@@ -141,10 +140,10 @@ species offender skills:[moving]{
 			draw "crime:" + nbCrimeCommited size:6#px color:#white;
 		}
 		if(showOffenderTarget){
-			draw line(location,target) width:0.5 color:rgb(255,255,0.5);
+			draw line(location,target) width:0.5 color:color_type["offender"];
 		}
 		if(showOffenderPath){
-	 	 	draw current_path.shape color: rgb(255,255,0.5);
+	 	 	draw current_path.shape color: color_type["offender"];
 		}
 		
 	}	
@@ -167,10 +166,10 @@ species people skills:[moving]{
 	
 	aspect default{
 		if (victimized = true){
-	      draw circle(35) color:rgb (255, 0, 255,255) ;
+	      draw circle(35) color:color_type["victim"] ;
 		}
 		else{
-		  draw circle(15) color:rgb (10, 192, 83,255);	
+		  draw circle(15) color:color_type["people"];	
 		}
 	}
 }
@@ -183,18 +182,24 @@ experiment dev type:gui{
 			species road;
 			species people;
 			species offender;
+			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true
+            {
+                float y <- 30#px;
+                loop type over: color_type.keys
+                {
+                    draw circle(5#px) at: { 20#px, y } color: color_type[type] border: color_type[type]+1;
+                    draw string(type) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 12);
+                    y <- y + 25#px;
+                }
+                draw "Crimes: " +  totalCrimes at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 12);
+
+            }
 		}
 	}
 }
 
-experiment city type:gui{
+experiment city type:gui parent:dev{
 	output{
-		layout #split;
-		display view type:opengl background:#black{
-			species road;
-			species people;
-			species offender;
-		}
 		display risk type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
 			species road;
@@ -211,17 +216,10 @@ experiment city type:gui{
 	}
 }
 
-experiment multi_city type: gui {
+experiment multi_city type: gui parent:dev{
 	init {
 		create simulation with: [case_study::"miramar"];
 		create simulation with: [case_study::"tijuana"];
-	}
-	output {
-		display view1  type:opengl  {	
-			species road;
-			species people;
-			species offender;
-		}	
 	}
 	permanent {
 		display Comparison background: #white {
