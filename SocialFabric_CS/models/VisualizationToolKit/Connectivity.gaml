@@ -9,24 +9,19 @@
 model Violence
 
 global torus:false{
-	string case_study <- "centinela" ;
-	file<geometry> osmfile <- osm_file("../gis/"+case_study + "/" +case_study +".osm");
+	string case_study parameter: 'Case Study:' category: 'Initialization' <-"centinela" among:["centinela", "miramar", "tijuana"];
+	file roads_file <- file("../gis/"+case_study+"/roads.shp");
 	file hospitals_file <- file("../gis/"+case_study+"/"+"hospitals"+".shp");
 	file transport_file <- file("../gis/"+case_study+"/"+"transport"+".shp");
 	file proposal_file <- file("../gis/"+case_study+"/"+"proposal"+".shp");
 	file proposal_file2 <- file("../gis/"+case_study+"/"+"proposal_interno"+".shp");
-	geometry shape <- envelope(osmfile);
+	geometry shape <- envelope(roads_file);
 	float maxDistance <- sqrt(world.shape.width^2+world.shape.height^2)#m;
 	transport busRoute;
 		
 	init{
 		// Initial step to create road from the osm file (whcih contains more elements than just the road)
-		create osm_agent from:osmfile with:[name_str::string(read("name")), type_str::string(read("highway"))]{
-			if(type_str != nil and type_str != "" and type_str != "turning_circle" and type_str != "traffic_signals" and type_str != "bus_stop"){
-				create road with: [shape::shape, type::type_str, name_str::name_str];
-			}
-			do die;
-		}
+		create road from:roads_file;
 		create transport from:transport_file with:[name_str::string(read("name")),type::"current",color::#blue];
 		create transport from:proposal_file with:[name_str::string(read("name_str")),type::"proposal",color::#yellow];
 		create transport from:proposal_file2 with:[name_str::string(read("name_str")),type::"proposal",color::#red];
