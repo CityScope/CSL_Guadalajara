@@ -38,6 +38,7 @@ global torus:false{
 	}
 }
 
+
 grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	int current_people_inside;
 	//Tension is refered as the perception of security, and its value depends on social and environmental factors 
