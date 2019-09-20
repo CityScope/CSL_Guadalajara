@@ -99,8 +99,8 @@ species block{
 	string blockID;
 	string str_lightning;
 	int int_lightning;
-	aspect default{	draw shape color: rgb(255-(127*int_lightning),0+(127*int_lightning),50,255) depth:rnd(30);}
-	aspect simple{ draw shape color: rgb (218, 179, 61,120) depth:0;}
+	aspect default{	draw shape color: rgb(255-(127*int_lightning),0+(127*int_lightning),50,255);}
+	aspect simple{ draw shape color: rgb (218, 179, 61,120);}
 }
 
 species block_front{

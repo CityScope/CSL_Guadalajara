@@ -169,8 +169,8 @@ experiment dev type:gui{
 	output{
 		layout #split;
 		display view type:opengl background:#black{
-			species road;
-			species people;
+			species road refresh:false;
+			species people trace:15;
 			species offender;
 			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true
             {
@@ -192,11 +192,11 @@ experiment city type:gui parent:dev{
 	output{
 		display risk type:opengl background:#black{
 			species cell aspect:crimeAttractiveAreas;
-			species road;
+			species road refresh:false;
 		}
 		display tension type:opengl background:#black{
 			species cell aspect:tension;
-			species road;
+			species road refresh:false;
 		}
 		display chart background:#black{
 			chart "Crimes" type:series{
