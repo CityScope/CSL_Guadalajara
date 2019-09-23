@@ -17,6 +17,7 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	bool allowRoadsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
+	bool showPlace parameter: "Show Places" category: "Visualization" <- false;
 	int experimentID;
 	int agentSize <- 15;
 	string outputFile;
@@ -64,6 +65,7 @@ global torus:false{
 		write "Total of places: "+length(places);
 		write "Total of roads: "+length(road); 
 	}
+	
 }
 
 
@@ -137,7 +139,11 @@ species places{
 	string name_str;
 	float height;
 	init{ height <- float(50+rnd(100)); }
-	aspect name:default{ draw geometry:square(60#m)  color:rgb (86, 140, 158,255) border:#indigo depth:height; }
+	aspect default{ 
+		if(showPlace){
+		  draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo depth:height;	
+		}
+	}
 }
 
 species targets{ aspect name:default{ draw geometry:triangle(100#m) color:rgb("red");  } }
@@ -226,6 +232,58 @@ experiment GUI type:gui{
 			species people aspect:default;
 			species block aspect:default refresh:false;
 			species road aspect:default refresh:false;
+			species places aspect:default;
+			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true
+            {                
+                point hpos<-{50#px,200#px};
+                float barW <- 10#px;
+			    float factor <- 0.05;  
+			    int a; 
+			    point rect_point;
+			    float y_offset<-150#px;          
+                if(length(block_front)>0){
+	                loop i from:0 to:2
+	                {
+	                	 a<-length(block_front where (each.int_lightning=i));
+	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
+	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point;	
+	                	 draw "Ligthing" at:hpos+{0,20#px} color: #white font: font("SansSerif", 12);
+	 
+	                }
+	                loop i from:0 to:2
+	                {
+	                	 a<-length(block_front where (each.int_paving=i));
+	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
+	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point+{0,y_offset};	
+	                	 draw "Paving" at:hpos+{0,y_offset}+{0,20#px} color: #white font: font("SansSerif", 12);
+	                	 
+	                	 }
+	                loop i from:0 to:2
+	                {
+	                	 a<-length(block_front where (each.int_sideWalk=i));
+	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
+	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point+{0,2*y_offset};	
+	                	 draw "SideWalk" at:hpos+{0,2*y_offset}+{0,20#px} color: #white font: font("SansSerif", 12);
+	                	 
+	                	 }
+	                loop i from:0 to:2
+	                {
+	                	 a<-length(block_front where (each.int_access=i));
+	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
+	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point+{0,3*y_offset};	
+	                	 draw "Access" at:hpos+{0,3*y_offset}+{0,20#px} color: #white font: font("SansSerif", 12); 	 
+	                }	
+	                
+	                loop i from:0 to:8
+	                {
+	                	 a<-length(block_front where (each.valuation=i/4));
+	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
+	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i/4),0+(127*i/4),50,255) at:rect_point+{0,4*y_offset};	
+	                	 draw "Valuation" at:hpos+{0,4*y_offset}+{0,20#px} color: #white font: font("SansSerif", 12); 	 
+	                }
+            	}
+            }
+            
 		}
 	}
 }
