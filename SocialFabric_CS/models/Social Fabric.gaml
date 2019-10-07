@@ -19,7 +19,7 @@ global torus:false{
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
 	bool showPlace parameter: "Show Places" category: "Visualization" <- false;
 	int experimentID;
-	int agentSize <- 15;
+	int agentSize parameter: "Agents Size" category: "Visualization" <- 15 min: 5 max: 50;
 	string outputFile;
 	
 	int timeStep;
@@ -91,7 +91,7 @@ species road{
 			if int_access = 0{valuation <- 0.0;}
 		}
 		weight <- valuation / 2; //Normalization of valuation 0 to 1 according to the model
-		weight <- 100*(1 - weight); //In weighted networks, a path is shorted than other if it has smaller value. 0 <- best road, 1 <- worst road
+		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
 	}
 	aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
 	aspect gray{draw shape color: rgb (174, 174, 174,200);}
@@ -149,7 +149,6 @@ species places{
 species targets{ aspect name:default{ draw geometry:triangle(100#m) color:rgb("red");  } }
 
 species people skills:[moving] parent: graph_node edge_species: edge_agent{
-//species people skills:[moving]{
 	int routineCount;
 	point target;
 	path shortestPath;
@@ -173,7 +172,7 @@ species people skills:[moving] parent: graph_node edge_species: edge_agent{
 	  	using topology:topology(world) {return (self.location distance_to other.location < interactionDistance);}
 	}
 	action buildRoutine{
-		int tmpRnd <- rnd(length(places));
+		int tmpRnd <- rnd(length(places)-1);
 		add places[tmpRnd] to:routine;
 		location <- routine[0].location;
 		loop times: 2{
@@ -230,9 +229,7 @@ experiment GUI type:gui{
 		layout #split;
 		display Main type:opengl ambient_light:50{
 			species people aspect:default;
-			species block aspect:default refresh:false;
 			species road aspect:default refresh:false;
-			species places aspect:default;
 			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true
             {                
                 point hpos<-{50#px,200#px};
@@ -247,7 +244,7 @@ experiment GUI type:gui{
 	                	 a<-length(block_front where (each.int_lightning=i));
 	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
 	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point;	
-	                	 draw "Ligthing" at:hpos+{0,20#px} color: #white font: font("SansSerif", 12);
+	                	 draw "Ligthing" at:hpos+{0,20#px} color: #white font: font("SansSerif", 14);
 	 
 	                }
 	                loop i from:0 to:2
@@ -294,6 +291,7 @@ experiment GUI_Encounters type:gui until:(time>3600){
 	output{
 		display Main type:opengl ambient_light:50{
 			species block aspect:default refresh:false;
+			species places aspect:default;
 			species people aspect:default;
 			species edge_agent aspect:default;
 		}

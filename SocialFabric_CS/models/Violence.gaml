@@ -170,7 +170,7 @@ experiment dev type:gui{
 		layout #split;
 		display view type:opengl background:#black{
 			species road refresh:false;
-			species people trace:15;
+			species people ;
 			species offender;
 			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true
             {
