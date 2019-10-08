@@ -7,26 +7,32 @@
  */
 
 model SocialFabric
-
 global torus:false{
 
-	//Model parameters 
-	string case_study parameter: "Case study:" category: "Initialization" <-"centinela" among:["centinela", "miramar", "tijuana"];
-	int interactionDistance parameter: "Interaction distance" category:"Model" <- 50 min: 50 max: 500;
+	//Initialization parameters 
+	string case_study parameter: "Case study:" category: "Initialization" <-"Centinela" among:["Centinela", "Miramar", "Tijuana"];
 	int nbAgents parameter: "Number of agents" category: "Initialization" <-200 min:50 max: 1000;
-	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	bool allowRoadsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
+	//Model parameters
+	bool showInteractions parameter: "Interactions" category:"Model" <- false;
+	int interactionDistance parameter: "Interaction distance" category:"Model" <- 50 min: 50 max: 500;
+	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
+	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
 	bool showPlace parameter: "Show Places" category: "Visualization" <- false;
-	int experimentID;
 	int agentSize parameter: "Agents Size" category: "Visualization" <- 15 min: 5 max: 50;
-	string outputFile;
 	
 	int timeStep;
 	graph road_network;
 	map<road, float> weight_map;
 	list<int> usedRoads;
-	float encountersSum<-0.0;
+	
+	//Output variables
+	int encounters;
+	float maxEncounters;
+	int lights;
+	int paving;
+	int sideWalks;
 
 	date starting_date <- date("now");
 
@@ -36,24 +42,25 @@ global torus:false{
 	file places_file <- file("/gis/"+case_study+"/places.shp");
 	geometry shape <- envelope(roads_file);
 	
-	//string outputFile <- "/output/Encounters.txt";
-	
-	reflex output0 when: time=3600 and experimentID = 0{
-		int tmpCounter <- 0;
-		loop i from:0 to: length(usedRoads)-1{
-			if usedRoads[i]=1{tmpCounter <- tmpCounter + 1;}
-		}
-		save tmpCounter type:text to:outputFile rewrite:false;
-	}
-	reflex output when: experimentID = 1 and time>0{
-		encountersSum <- encountersSum + length(edge_agent);
-		if time=600{save encountersSum/time type:text to:outputFile rewrite:false;}
-	}
+
 	init{
-		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C"))]{
+		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
 			if str_lightning = "Todas las vialidades"{ int_lightning <- 2; }
 			else if str_lightning = "Alguna vialidad"{ int_lightning <- 1; }
 			else{ int_lightning <- 0; }
+			if str_paving = "Todas las vialidades"{ int_paving <- 2; }
+			else if str_paving = "Alguna vialidad"{ int_paving <- 1; }
+			else{ int_paving <- 0; }
+			if str_sidewalk = "Todas las vialidades"{ int_sidewalk <- 2; }
+			else if str_sidewalk = "Alguna vialidad"{ int_sidewalk <- 1; }
+			else{ int_sidewalk <- 0; }
+			if str_access = "Restricción en ninguna vialidad"{ int_access <- 2; }
+			else if str_access = "Restricción en alguna vialidad"{ int_access <- 1; }
+			else{ int_access <- 0; }
+			if str_trees = "Todas las vialidades"{ int_trees <- 2; }
+			else if str_trees = "Alguna vialidad"{ int_trees <- 1; }
+			else{ int_trees <- 0; }
+			
 		}
 		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
 		create road from:roads_file{ do init_condition;	}
@@ -62,8 +69,15 @@ global torus:false{
 		road_network <- as_edge_graph(road);
 		usedRoads <- list_with(length(road_network),-1);
 		create people number:nbAgents;
+		maxEncounters <- nbAgents*(nbAgents-1)/2;
 		write "Total of places: "+length(places);
 		write "Total of roads: "+length(road); 
+	}
+	
+	reflex main{
+		//Compute encounters-related variables
+		encounters <- length(list(relationships));
+		//Compute perception-related variables
 	}
 	
 }
@@ -100,7 +114,15 @@ species road{
 species block{
 	string blockID;
 	string str_lightning;
+	string str_sidewalk;
+	string str_paving;
+	string str_access;
+	string str_trees;
 	int int_lightning;
+	int int_sidewalk;
+	int int_paving;
+	int int_access;
+	int int_trees;
 	aspect default{	draw shape color: rgb(255-(127*int_lightning),0+(127*int_lightning),50,255);}
 	aspect simple{ draw shape color: rgb (218, 179, 61,120);}
 }
@@ -148,7 +170,7 @@ species places{
 
 species targets{ aspect name:default{ draw geometry:triangle(100#m) color:rgb("red");  } }
 
-species people skills:[moving] parent: graph_node edge_species: edge_agent{
+species people skills:[moving] parent: graph_node edge_species: relationships{
 	int routineCount;
 	point target;
 	path shortestPath;
@@ -209,101 +231,28 @@ species people skills:[moving] parent: graph_node edge_species: edge_agent{
 		}
 		
 	}
-	reflex prepareOutput when:experimentID=0{
-		if current_edge!=nil and string(current_edge)!=""{
-			string tmpStr <- replace(string(current_edge),"road(","");
-			tmpStr <- replace(tmpStr,")","");
-			int tmpInt <- int(tmpStr);
-			if !(usedRoads contains tmpInt){usedRoads[tmpInt] <- 1;}
-		}
-	}
 	aspect name:default{ draw geometry:circle(agentSize#m) color:rgb (255, 242, 9,255); }
 }
 
-species edge_agent parent: base_edge {aspect default {draw shape color:#blue;}}
+species relationships parent: base_edge {aspect default {if showInteractions{draw shape color:#blue;}}}
 
 experiment GUI type:gui{
-	parameter "Experiment_ID" var:experimentID <- 2;
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- false;
 	output{
 		layout #split;
 		display Main type:opengl ambient_light:50{
+			species block aspect:default;
 			species people aspect:default;
-			species road aspect:default refresh:false;
-			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true
-            {                
-                point hpos<-{50#px,200#px};
-                float barW <- 10#px;
-			    float factor <- 0.05;  
-			    int a; 
-			    point rect_point;
-			    float y_offset<-150#px;          
-                if(length(block_front)>0){
-	                loop i from:0 to:2
-	                {
-	                	 a<-length(block_front where (each.int_lightning=i));
-	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
-	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point;	
-	                	 draw "Ligthing" at:hpos+{0,20#px} color: #white font: font("SansSerif", 14);
-	 
-	                }
-	                loop i from:0 to:2
-	                {
-	                	 a<-length(block_front where (each.int_paving=i));
-	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
-	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point+{0,y_offset};	
-	                	 draw "Paving" at:hpos+{0,y_offset}+{0,20#px} color: #white font: font("SansSerif", 12);
-	                	 
-	                	 }
-	                loop i from:0 to:2
-	                {
-	                	 a<-length(block_front where (each.int_sideWalk=i));
-	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
-	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point+{0,2*y_offset};	
-	                	 draw "SideWalk" at:hpos+{0,2*y_offset}+{0,20#px} color: #white font: font("SansSerif", 12);
-	                	 
-	                	 }
-	                loop i from:0 to:2
-	                {
-	                	 a<-length(block_front where (each.int_access=i));
-	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
-	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i),0+(127*i),50,255) at:rect_point+{0,3*y_offset};	
-	                	 draw "Access" at:hpos+{0,3*y_offset}+{0,20#px} color: #white font: font("SansSerif", 12); 	 
-	                }	
-	                
-	                loop i from:0 to:8
-	                {
-	                	 a<-length(block_front where (each.valuation=i/4));
-	                	 rect_point <- {hpos.x + barW * 1.1 * i, hpos.y - a * factor / 2};
-	                	 draw rectangle(barW, a*factor) color:rgb(255-(127*i/4),0+(127*i/4),50,255) at:rect_point+{0,4*y_offset};	
-	                	 draw "Valuation" at:hpos+{0,4*y_offset}+{0,20#px} color: #white font: font("SansSerif", 12); 	 
-	                }
-            	}
-            }
-            
+			species relationships aspect:default;
+		}
+		display Output type:opengl{
+			chart "Current state" type: radar position:{5,5} background: # black x_serie_labels: [ "+ Encounters", "- Encounters", "+ Safety perception", "- Safety perception", "Segregation"] color:#white series_label_position: xaxis
+			{
+				data "Encounters" value: [encounters/maxEncounters,1,1,1,1] color: # green;
+			}
 		}
 	}
 }
-experiment GUI_Encounters type:gui until:(time>3600){
-	parameter "Output_File" var:outputFile <- "/output/Encounters.txt";
-	parameter "Experiment_ID" var:experimentID <- 1;
-	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- true;
-	output{
-		display Main type:opengl ambient_light:50{
-			species block aspect:default refresh:false;
-			species places aspect:default;
-			species people aspect:default;
-			species edge_agent aspect:default;
-		}
-	}
-}
-experiment Batch_Encounters type:batch repeat:1 keep_seed:true until:(time>3600){
-	parameter "Output_File" var:outputFile <- "/output/Encounters.txt";
-	parameter "Experiment_ID" var:experimentID <- 1;
-	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- true;
-}
-experiment Batch_StreetsUsage type:batch repeat:100 keep_seed:true until:(time>3600){
-	parameter "Output_File" var:outputFile <- "/output/StreetsUsage.txt";
-	parameter "Experiment_ID" var:experimentID <- 0;
+experiment Batch type:batch repeat:100 keep_seed:true until:(time>3600){
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- true;
 }
