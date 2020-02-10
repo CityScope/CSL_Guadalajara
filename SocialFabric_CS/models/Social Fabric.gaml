@@ -10,9 +10,9 @@ model SocialFabric
 global torus:false{
 
 	//Initialization parameters 
-	string case_study parameter: "Case study:" category: "Initialization" <-"centinela" among:["centinela", "miramar"];
-	int nbAgents parameter: "Number of people" category: "Initialization" <-200 min:50 max: 1000;
-	int nbOffenders parameter: "Number of offenders" category: "Initialization" <-50 min:0 max: 100;
+	string case_study parameter: "Case study:" category: "Initialization" <-"sixcorners" among:["centinela", "miramar", "sixcorners"];
+	int nbAgents parameter: "Number of people" category: "Initialization" <-0 min:50 max: 1000;
+	int nbOffenders parameter: "Number of offenders" category: "Initialization" <-0 min:0 max: 100;
 	bool allowRoadsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
 	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 500 min: 50 max: 1000;
 	int offenderPerception parameter: 'Offender Perception Distance:' category: 'Model' <- 100 min: 10 max: 500;
@@ -46,16 +46,33 @@ global torus:false{
 	int paving;
 	int sideWalks;
 
+	//Walkers
+	int nbWalkers <- 0;
+	point born_place <- nil;
+	point death_place <- nil;
+
 	date starting_date <- date("now");
-
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
-	file blocks_file <- file("/gis/"+case_study+"/blocks.shp");
-	file block_fronts_file <- file("/gis/"+case_study+"/block_fronts.shp");
-	file places_file <- file("/gis/"+case_study+"/places.shp");
 	geometry shape <- envelope(roads_file);
-	
-
 	init{
+		
+		file blocks_file <- nil;
+		file block_fronts_file <- nil;
+		file places_file <- nil;
+		
+		string inputFileName <- "";
+		
+		inputFileName <- "/gis/"+case_study+"/blocks.shp";
+		if file_exists(inputFileName){ blocks_file <- file(inputFileName);}
+		
+		inputFileName <- "/gis/"+case_study+"/block_fronts.shp";
+		if file_exists(inputFileName){ block_fronts_file <- file(inputFileName);}
+		
+		inputFileName <- "/gis/"+case_study+"/places.shp";
+		if file_exists(inputFileName){ places_file <- file(inputFileName);}
+		
+		
+		
 		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
 			if str_lightning = "Todas las vialidades"{ int_lightning <- 2; }
 			else if str_lightning = "Alguna vialidad"{ int_lightning <- 1; }
@@ -82,6 +99,13 @@ global torus:false{
 		usedRoads <- list_with(length(road_network),-1);
 		create inhabitant number:nbAgents;
 		create offender number:nbOffenders;
+		
+		create walker number:nbWalkers;
+		born_place <- one_of(road_network.vertices);
+		death_place <- one_of(road_network.vertices);
+		write born_place;
+		write death_place;
+		
 		totalCrimes<-0;
 		maxEncounters <- nbAgents*(nbAgents-1)/2;
 		maxNegEncounters <- nbOffenders*(nbOffenders-1)/2;
@@ -90,10 +114,12 @@ global torus:false{
 	}
 	
 	reflex main{
-		//Compute encounters-related variables
-		encounters <- length(list(relationships));
-		negEncounters <- length(list(negRelationships));
-		//Compute perception-related variables
+		//encounters <- length(list(relationships));
+		//negEncounters <- length(list(negRelationships));
+		create walker number:1{
+			location <- born_place;
+			target <- death_place;
+		}
 	}
 	
 }
@@ -379,10 +405,47 @@ species people  parent: graph_node edge_species: relationships{
 	}
 }
 
+species walker skills:[moving]{
+	point target;
+	path shortest;
+	init{
+		location <- any_location_in(base_edge(one_of(road_network.edges)));
+		target <- any_location_in(base_edge(one_of(road_network.edges)));
+		shortest <- path_between(road_network, location, target); 
+	}
+	aspect default{
+		draw circle(5) color: #lime;
+	}
+	reflex moving{
+		if(location = target){do die;}
+		speed <- 5*agentSpeed;
+		do follow path:shortest move_weights: shortest.edges as_map(each::each.perimeter);
+	}
+}
 
 species relationships parent: base_edge {aspect default {if showInteractions{draw shape color:#blue;}}}
 species negRelationships parent: base_edge {aspect default {if showInteractions{draw shape color:#red;}}}
 
+experiment RoadGraph type:gui{
+	output{
+		display graph background:#black type:opengl{
+			graphics "network" refresh:false{
+				loop vertex over: road_network.vertices{
+					draw circle(15) at:vertex color: #royalblue;
+				}
+				loop edge over: road_network.edges{
+					draw base_edge(edge) color:#grey;
+				}
+			}
+			graphics "bornandtarget"{
+				draw square(30) color:#aqua at:born_place.location;
+				draw triangle(30) color:#darkred at:death_place.location;
+			}
+			species walker aspect:default;
+		}	
+	}
+	
+}
 experiment GUI type:gui{
 	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- false;
 	output{
@@ -408,7 +471,7 @@ experiment GUI type:gui{
             }
 		}
 		display Output type:opengl{
-			chart "Current state" type: radar position:{5,5} background: # black x_serie_labels: [ "+ Encounters", "- Encounters", "+ Safety perception", "- Safety perception", "Segregation"] color:#white series_label_position: xaxis
+			chart "Social Fabric" type: radar position:{5,5} background: # black x_serie_labels: [ "+ Encounters", "- Encounters", "+ Safety perception", "- Safety perception", "Segregation"] color:#white series_label_position: xaxis
 			{
 				data "Encounters" value: [encounters/maxEncounters,negEncounters/maxNegEncounters,0.1,0.1,0.1] color: # green;
 			}
