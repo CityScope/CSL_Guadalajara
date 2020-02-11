@@ -48,7 +48,7 @@ global torus:false{
 
 	//Walkers
 	int nbWalkers <- 0;
-	point born_place <- nil;
+	point birth_place <- nil;
 	point death_place <- nil;
 
 	date starting_date <- date("now");
@@ -100,10 +100,9 @@ global torus:false{
 		create inhabitant number:nbAgents;
 		create offender number:nbOffenders;
 		
-		create walker number:nbWalkers;
-		born_place <- one_of(road_network.vertices);
+		birth_place <- one_of(road_network.vertices);
 		death_place <- one_of(road_network.vertices);
-		write born_place;
+		write birth_place;
 		write death_place;
 		
 		totalCrimes<-0;
@@ -116,10 +115,7 @@ global torus:false{
 	reflex main{
 		//encounters <- length(list(relationships));
 		//negEncounters <- length(list(negRelationships));
-		create walker number:1{
-			location <- born_place;
-			target <- death_place;
-		}
+		create walker;
 	}
 	
 }
@@ -343,7 +339,7 @@ species inhabitant skills:[moving] parent: people edge_species: relationships pa
 		}
 		create targets{ location <- myself.target; }
 	}
-	reflex move{
+	reflex move when:mod(cycle,2)=0{
 		speed <- agentSpeed;
 		do follow path:shortestPath move_weights: shortestPath.edges as_map(each::each.perimeter);
 		if(location = target){
@@ -409,8 +405,8 @@ species walker skills:[moving]{
 	point target;
 	path shortest;
 	init{
-		location <- any_location_in(base_edge(one_of(road_network.edges)));
-		target <- any_location_in(base_edge(one_of(road_network.edges)));
+		location <- birth_place;
+		target <- death_place;
 		shortest <- path_between(road_network, location, target); 
 	}
 	aspect default{
@@ -418,7 +414,7 @@ species walker skills:[moving]{
 	}
 	reflex moving{
 		if(location = target){do die;}
-		speed <- 5*agentSpeed;
+		speed <- 2*agentSpeed;
 		do follow path:shortest move_weights: shortest.edges as_map(each::each.perimeter);
 	}
 }
@@ -438,7 +434,7 @@ experiment RoadGraph type:gui{
 				}
 			}
 			graphics "bornandtarget"{
-				draw square(30) color:#aqua at:born_place.location;
+				draw square(30) color:#aqua at:birth_place.location;
 				draw triangle(30) color:#darkred at:death_place.location;
 			}
 			species walker aspect:default;
