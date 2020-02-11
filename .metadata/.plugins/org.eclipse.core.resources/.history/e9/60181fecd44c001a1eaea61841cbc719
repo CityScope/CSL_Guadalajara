@@ -1,0 +1,12 @@
+model new
+global {
+   user_command "Create agents here" {
+      create my_species number: 10 with: [location::user_location];
+   }
+}
+species my_species {
+	user_command cmd_inside_experiment action:die;
+	aspect base {
+		draw circle(1) color:#blue;
+	}
+}

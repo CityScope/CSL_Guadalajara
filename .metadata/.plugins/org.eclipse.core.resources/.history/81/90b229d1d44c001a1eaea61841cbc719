@@ -1,0 +1,22 @@
+model quick_user_command_model
+
+global {
+   init {
+      map values <- user_input("Choose a number of agent to create",["Number" :: 100]);
+      create my_species number: int(values at "Number");
+   }
+}
+
+species my_species {
+	aspect base {
+		draw circle(1) color:#blue;
+	}
+}
+
+experiment expe type:gui {
+	output {
+		display my_display {
+			species my_species aspect:base;
+		}
+	}
+}

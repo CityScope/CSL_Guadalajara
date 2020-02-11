@@ -1,0 +1,25 @@
+model New
+global
+{
+	action my_action
+	{
+		write "do action";
+	}
+
+}
+
+species my_species
+{
+}
+
+experiment my_experiment type: gui
+{
+	output
+	{
+		display my_display
+		{
+			species my_species;
+			event mouse_down action: my_action;
+		}
+	}
+}
