@@ -48,9 +48,11 @@ global torus:false{
 
 	//Walkers
 	int nbWalkers <- 0;
-	point birth_place <- nil;
-	point sink_place <- nil;
-	path pathToFollow <- nil;
+	int flux_node_size <- 20;
+	list<flux_node> source_places <- [];
+	list<flux_node> sink_places <- [];
+	int fluxid <- 1;
+	map<list<flux_node>,path> paths <- nil;
 
 	date starting_date <- date("now");
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
@@ -101,11 +103,13 @@ global torus:false{
 		create inhabitant number:nbAgents;
 		create offender number:nbOffenders;
 		
-		birth_place <- one_of(road_network.vertices);
-		sink_place <- one_of(road_network.vertices);
-		pathToFollow <- path_between(road_network, birth_place, sink_place);
-		write birth_place;
-		write sink_place;
+		create flux_node from: file("/gis/"+case_study+"/flux.shp") with:[id::int(read("id")),way::string(read("way"))];
+		if length(flux_node where(each.way="input"))=0{
+			create flux_node with:[id::-1,way::"input",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
+		}
+		if length(flux_node where(each.way="output"))=0{
+			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
+		}
 		
 		totalCrimes<-0;
 		maxEncounters <- nbAgents*(nbAgents-1)/2;
@@ -114,29 +118,42 @@ global torus:false{
 		write "Total of roads: "+length(road); 
 	}
 	
-	reflex main when:mod(cycle,10)=0{
+	reflex main{
 		//encounters <- length(list(relationships));
 		//negEncounters <- length(list(negRelationships));
-		create walker{
-			shortest <- pathToFollow;
-		}
+		create walker numer:3;
 	}
-	user_command "birth_place here"{
-		birth_place <- #user_location;
-		pathToFollow <- path_between(road_network, birth_place, sink_place);
+	user_command "source_place here"{
+		point newPoint <- #user_location;
+		create flux_node with:[id::fluxid,way::"input",location::newPoint]{fluxid<-fluxid+1;}
 	}
 	user_command "sink_place here"{
-		sink_place <- #user_location;
-		pathToFollow <- path_between(road_network, birth_place, sink_place);
+		point newPoint <- #user_location;
+		create flux_node with:[id::fluxid,way::"output",location::newPoint]{fluxid<-fluxid+1;}
 	}
 	user_command "interland"{
 		create places{
 			type <- "interland";
 			location <- #user_location;
+			do interactWithStreets;
+		}
+		weight_map <- road as_map(each::each.valuation);
+		do rebuildPaths;
+	}
+	action rebuildPaths{
+		loop keylist over:paths.keys{
+			put path_between(road_network with_weights weight_map, keylist[0], keylist[1]) at:keylist in:paths;
 		}
 	}
 }
 
+species flux_node{
+	int id;
+	string way;
+	aspect default{
+		draw way="input"?square(flux_node_size):triangle(flux_node_size) color:way="input"?#limegreen:#crimson;
+	}
+}
 
 species road{
 	string road_name;
@@ -162,7 +179,8 @@ species road{
 		weight <- valuation / 2; //Normalization of valuation 0 to 1 according to the model
 		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
 	}
-	aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
+	//aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
+	aspect default{draw shape color: rgb(0+(255*valuation),50,50,125);}
 	aspect gray{draw shape color: rgb (174, 174, 174,200);}
 }
 
@@ -228,11 +246,17 @@ species places{
 		}
 	}
 	aspect interland{
-		if type="interland"{draw square(50#m) color: rgb (244, 250, 29,255) border: #maroon;}
+		if type="interland"{draw square(flux_node_size) color: rgb (244, 250, 29,255) border: #maroon;}
 	}
 	action interactWithStreets{
 		list<road> inRank <- [];
-		inRank <- road at_distance(100);
+		inRank <- road at_distance(50);
+		write "Interacting with: \n"+inRank;
+		if length(inRank)!=0{
+			ask inRank{
+				valuation <- 100.0;
+			}
+		}
 	}
 }
 
@@ -426,21 +450,27 @@ species people  parent: graph_node edge_species: relationships{
 	}
 }
 
-
-
 species walker skills:[moving]{
 	point target;
 	path shortest;
 	init{
-		location <- birth_place;
-		target <- sink_place;
+		flux_node source_place <- one_of(flux_node where(each.way="input"));
+		location <- source_place.location;
+		flux_node sink_place <- one_of(flux_node where(each.way="output"));
+		target <- sink_place.location;
+		if(paths[[source_place,sink_place]] != nil){shortest<-paths[[source_place,sink_place]];}
+		else{
+			path newPath <- path_between(road_network, location, target);
+			add [source_place,sink_place]::newPath to: paths;
+			shortest <- newPath;
+		}
 	}
 	aspect default{
-		draw circle(2) color: #lime;
+		draw circle(2) color: rgb (255, 255, 0,200);
 	}
 	reflex moving{
 		if(location = target){do die;}
-		speed <- agentSpeed;
+		speed <- 5*agentSpeed;
 		do follow path:shortest move_weights: shortest.edges as_map(each::each.perimeter);
 	}
 }
@@ -453,23 +483,23 @@ experiment RoadGraph type:gui{
 		display graph background:#black type:opengl{
 			graphics "network" refresh:false{
 				loop vertex over: road_network.vertices{
-					draw circle(10) at:vertex color: #royalblue;
-				}
-				loop edge over: road_network.edges{
-					draw base_edge(edge) color:rgb (42, 42, 42,255);
+					draw circle(10) at:vertex color: rgb (68, 151, 183,100);
 				}
 			}
-			graphics "bornandtarget"{
-				draw square(30) color:#aqua at:birth_place.location;
-				draw triangle(30) color:#darkred at:sink_place.location;
-			}
-			species walker aspect:default;
+			species road aspect:default;
+			species walker aspect:default trace:10;
 			species places aspect:interland;
-			overlay position: { 5, 5 } size: { 180 #px, 100 #px } background: # black transparency: 0.5 border: #black rounded: true{
+			overlay position: { 10, 10 } size: { 180 #px, 180 #px } background: # black transparency: 0.5 border: #black rounded: true{
                 float y <- 30#px;
                 draw "Agents: " +  length(walker) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
-
+				draw square(flux_node_size) color:#limegreen at:{50#px, y+30#px};
+				draw "Source" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
+				draw triangle(flux_node_size) color:rgb("red") at:{50#px, y+60#px};
+				draw "Sink" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
+				draw square(flux_node_size) at:{50#px, y+90#px} color: rgb (244, 250, 29,255) border: #maroon;
+				draw "Interland" at:{50+30#px, y+90#px}  color: #white font: font("SansSerif", 15);
             }
+            species flux_node aspect:default;
 		}
 	}
 	
