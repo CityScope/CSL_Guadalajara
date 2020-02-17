@@ -149,8 +149,12 @@ species flux_node{
 	int id;
 	string way;
 	aspect default{
-		draw way="input"?square(flux_node_size):triangle(flux_node_size) color:way="input"?#limegreen:#crimson;
+		//draw way="input"?square(flux_node_size):triangle(flux_node_size) color:way="input"?#limegreen:#crimson;
+		draw square(flux_node_size) color:#limegreen;
 	}
+}
+
+species flux_node_ mirrors:flux_node{
 }
 
 species road{
@@ -178,7 +182,7 @@ species road{
 		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
 	}
 	//aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
-	aspect default{draw shape color: rgb(0+(255*valuation),50,50,125);}
+	aspect default{draw shape color: rgb(0+(255*valuation),50,50,100);}
 	aspect gray{draw shape color: rgb (174, 174, 174,200);}
 }
 
@@ -452,9 +456,9 @@ species walker skills:[moving]{
 	point target;
 	path shortest;
 	init{
-		flux_node source_place <- one_of(flux_node where(each.way="input"));
+		flux_node source_place <- one_of(flux_node);
 		location <- source_place.location;
-		flux_node sink_place <- one_of(flux_node where(each.way="output"));
+		flux_node sink_place <- one_of(flux_node);
 		target <- sink_place.location;
 		if(paths[[source_place,sink_place]] != nil){shortest<-paths[[source_place,sink_place]];}
 		else{
@@ -478,7 +482,8 @@ species negRelationships parent: base_edge {aspect default {if showInteractions{
 
 experiment RoadGraph type:gui{
 	output{
-		display graph background:#black type:opengl draw_env:false name:"Tejido social"{
+		layout #split;
+		display graph background:#black type:opengl draw_env:false name:"Tejido Social"{
 			graphics "network" refresh:false{
 				loop vertex over: road_network.vertices{
 					draw circle(10) at:vertex color: rgb (68, 151, 183,100);
@@ -492,13 +497,28 @@ experiment RoadGraph type:gui{
                 float y <- 30#px;
                 draw "Agents: " +  length(walker) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) color:#limegreen at:{50#px, y+30#px};
-				draw "Source" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
-				draw triangle(flux_node_size) color:rgb("red") at:{50#px, y+60#px};
-				draw "Sink" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
-				draw square(flux_node_size) at:{50#px, y+90#px} color: rgb (232, 64, 126,255) border: #maroon;
-				draw "Interland" at:{50+30#px, y+90#px}  color: #white font: font("SansSerif", 15);
+				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
+				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
+				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
+				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);
             }
             species flux_node aspect:default;
+		}
+		display network background:#black type:opengl name:"Network analysis" draw_env:false{
+			graphics "nodes"{
+            	point reference <- location;
+            	int diameter <- 300;
+            	int n <- length(flux_node);
+            	float alpha <- 360/n;
+            	loop it from: 0 to:n-1{
+            		point point_location <- (location+{diameter*cos(alpha*it),diameter*sin(alpha*it)});
+            		draw circle(10) at:point_location;
+            		flux_node_[it].location <- point_location;
+            	}
+            	loop key over:paths.keys{
+            		
+            	}
+            }
 		}
 	}
 	
