@@ -490,7 +490,7 @@ species negRelationships parent: base_edge {aspect default {if showInteractions{
 experiment RoadGraph type:gui{
 	output{
 		layout #split;
-		display environment background:#black type:opengl draw_env:false name:"Tejido Social"{
+		display graph background:#black type:opengl draw_env:false name:"Tejido Social"{
 			graphics "network" refresh:false{
 				loop vertex over: road_network.vertices{
 					draw circle(10) at:vertex color: rgb (68, 151, 183,100);
@@ -512,7 +512,7 @@ experiment RoadGraph type:gui{
             species flux_node aspect:default;
 		}
 		
-		display network background:#black type:opengl name:"Network analysis" draw_env:false{
+		display network background:#black type:opengl name:"Network analysis" draw_env:false camera_pos:[100,100,100]{
 			graphics "nodes"{
             	point reference <- location;
             	map<flux_node,flux_node_> location_translation;
