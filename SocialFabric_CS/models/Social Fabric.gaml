@@ -14,20 +14,21 @@ global torus:false{
 	int nbAgents parameter: "Number of people" category: "Initialization" <-0 min:0 max: 1000;
 	int nbOffenders parameter: "Number of offenders" category: "Initialization" <-0 min:0 max: 100;
 	bool allowRoadsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
-	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 50 min: 50 max: 1000;
+	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 15 min: 10 max: 100;
 	int offenderPerception parameter: 'Offender Perception Distance:' category: 'Model' <- 100 min: 10 max: 500;
 	//Model parameters
 	bool showInteractions parameter: "Show encounters" category:"Model" <- false;
 	int interactionDistance parameter: "Interaction distance" category:"Model" <- 50 min: 50 max: 1000;
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
+	bool showCells parameter: "Insecurity perception" category:"Visualization" <- true;
 	bool showPlace parameter: "Show Places" category: "Visualization" <- false;
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
 	bool showBlocks parameter: "Show blocks" category:"Visualization" <- false;
 	bool showNbCrime parameter: "Show Number of Crime" category: "Visualization" <-false;
 	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
 	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
-	bool showCells parameter: "Insecurity perception" category:"Visualization" <- false;
+	
 	
 	int timeStep;
 	graph road_network;
@@ -287,14 +288,14 @@ grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize pa
 	int insecurity_perception; 
 	int max_insecurity_perception <- 100;
 	rgb insecurity_perception_color <- rgb(255,255,255);
-	float transparency <- 0.75;
+	float transparency <- 0.0;
 				 
 	init{
 		current_people_inside <- 0;
 		insecurity_perception <- 0;
 	}
 	reflex update_color when:showCells{
-		insecurity_perception_color <- rgb(transparency*30,transparency*109,transparency*255);
+		insecurity_perception_color <- rgb(transparency*100,transparency*30,transparency*30);
 	}
 	reflex update_transparency when:showCells{
 		transparency <- float(insecurity_perception)/max_insecurity_perception;
@@ -304,7 +305,7 @@ grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize pa
 	}
 	aspect insecurity_perception{
 		if(showCells){
-			draw shape color:rgb(insecurity_perception_color) border:#gray empty:true;
+			draw shape color:rgb(insecurity_perception_color,transparency) border:rgb(insecurity_perception_color,transparency) empty:true;
 		}
 	}
 	aspect crimeAttractiveAreas{
@@ -519,7 +520,7 @@ species walker skills:[moving]{
 species relationships parent: base_edge {aspect default {if showInteractions{draw shape color:#blue;}}}
 species negRelationships parent: base_edge {aspect default {if showInteractions{draw shape color:#red;}}}
 
-experiment Fluxes type:gui parallel:false {
+experiment Flow type:gui parallel:false {
 	
 	output{
 		
