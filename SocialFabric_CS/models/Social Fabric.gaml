@@ -13,7 +13,7 @@ global torus:false{
 	string case_study parameter: "Case study:" category: "Initialization" <-"sixcorners" among:["centinela", "miramar", "sixcorners"];
 	int nbAgents parameter: "Number of people" category: "Initialization" <-0 min:0 max: 1000;
 	int nbOffenders parameter: "Number of offenders" category: "Initialization" <-0 min:0 max: 100;
-	bool allowRoadsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
+	bool allowstreetsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
 	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 15 min: 10 max: 100;
 	int offenderPerception parameter: 'Offender Perception Distance:' category: 'Model' <- 100 min: 10 max: 500;
 	//Model parameters
@@ -29,11 +29,10 @@ global torus:false{
 	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
 	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
 	
-	
 	int timeStep;
-	graph road_network;
-	map<road, float> weight_map;
-	list<int> usedRoads;
+	graph street_network;
+	map<street, float> weight_map;
+	list<int> usedstreets;
 	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
 	
 	//Crimes
@@ -58,8 +57,8 @@ global torus:false{
 	graph<walker,walker> interaction_graph;
 
 	date starting_date <- date("now");
-	file roads_file <- file("/gis/"+case_study+"/roads.shp");
-	geometry shape <- envelope(roads_file);
+	file streets_file <- file("/gis/"+case_study+"/roads.shp");
+	geometry shape <- envelope(streets_file);
 	init{
 		
 		file blocks_file <- nil;
@@ -101,33 +100,34 @@ global torus:false{
 			else{ int_trees <- 0; }
 			do updateValuation;
 		}
-		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
-		create road from:roads_file{ do init_condition;	}
+		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), street_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
+		create street from:streets_file with:[street_id::int(read("CVEVIAL"))];
+		do mapValues;
 		create places from: interlands_file with:[type::"interland"]{do interactWithStreets;}
-		create places from: places_file with:[id::string(read("id")),name_str::string(read("nom_estab"))];			
-		weight_map <- road as_map(each::each.valuation);
-		road_network <- as_edge_graph(road);
-		usedRoads <- list_with(length(road_network),-1);
-		create inhabitant number:nbAgents;
-		create offender number:nbOffenders;
+		//create places from: places_file with:[id::string(read("id")),name_str::string(read("nom_estab"))];			
+		weight_map <- street as_map(each::each.valuation);
+		street_network <- as_edge_graph(street);
+		usedstreets <- list_with(length(street_network),-1);
+		//create inhabitant number:nbAgents;
+		//create offender number:nbOffenders;
 	
 		create flux_node from: file("/gis/"+case_study+"/flux.shp") with:[id::int(read("id")),way::string(read("way"))];
 		if length(flux_node where(each.way="input"))=0{
-			create flux_node with:[id::-1,way::"input",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
+			create flux_node with:[id::-1,way::"input",location::one_of(street_network.vertices)]{fluxid<-fluxid+1;}
 		}
 		if length(flux_node where(each.way="output"))=0{
-			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
+			create flux_node with:[id::0,way::"output",location::one_of(street_network.vertices)]{fluxid<-fluxid+1;}
 		}
 		
 		totalCrimes<-0;
 		maxEncounters <- nbAgents*(nbAgents-1)/2;
 		maxNegEncounters <- nbOffenders*(nbOffenders-1)/2;
 		write "Total of places: "+length(places);
-		write "Total of roads: "+length(road); 
+		write "Total of streets: "+length(street); 
 	}
 	
 	reflex main{
-		create walker number:4;
+		create walker number:3;
 	}
 	reflex updateGraph when: (showInteractions = true) {
 		interaction_graph <- graph<walker, walker>(walker as_distance_graph (interactionDistance));
@@ -146,12 +146,28 @@ global torus:false{
 			location <- #user_location;
 			do interactWithStreets;
 		}
-		weight_map <- road as_map(each::each.valuation);
+		weight_map <- street as_map(each::each.valuation);
 		do rebuildPaths;
 	}
 	action rebuildPaths{
 		loop keylist over:paths.keys{
-			put path_between(road_network with_weights weight_map, keylist[0], keylist[1]) at:keylist in:paths;
+			put path_between(street_network with_weights weight_map, keylist[0], keylist[1]) at:keylist in:paths;
+		}
+	}
+	action mapValues{
+	//Information about streets condition is in block fronts file, copy it to street species.
+		loop bf_element over:block_front{
+			int st_id <- bf_element.street_id;
+			list<street> auxStreets <- street where (each.street_id = st_id);
+			if(auxStreets!=[]){
+				ask auxStreets{
+					float_lightning <- bf_element.int_lightning/2;
+					float_paving <- bf_element.int_paving/2;
+					float_sideWalk <- bf_element.int_sideWalk/2;
+					float_access <- bf_element.int_access/2;
+					do init_condition;
+				}
+			}
 		}
 	}
 }
@@ -160,8 +176,8 @@ species flux_node{
 	int id;
 	string way;
 	aspect default{
-		//draw way="input"?square(flux_node_size):triangle(flux_node_size) color:way="input"?#limegreen:#crimson;
-		draw square(flux_node_size) color:#limegreen;
+		//draw way="input"?square(flux_node_size):triangle(flux_node_size) color:way="input"?#mediumseagreen:#crimson;
+		draw square(flux_node_size) color:#mediumseagreen;
 	}
 }
 
@@ -171,32 +187,21 @@ species flux_node_ mirrors:flux_node{
 	}
 }
 
-species road{
-	string road_name;
+species street{
+	int street_id;
 	float valuation;
 	float weight;
-	int int_lightning;
-	int int_paving;
-	int int_sideWalk;
-	int int_access;
+	float float_lightning;
+	float float_paving;
+	float float_sideWalk;
+	float float_access;
 	action init_condition{
-		valuation <- 0.0;
-		list nearBlockFronts;
-		nearBlockFronts <- block_front at_distance(50);
-		if length(nearBlockFronts)>0{
-			block_front tmpBlockFront <- one_of(nearBlockFronts);
-			valuation <- tmpBlockFront.valuation;
-			int_lightning <- tmpBlockFront.int_lightning;
-			int_paving <- tmpBlockFront.int_paving;
-			int_sideWalk <- tmpBlockFront.int_sideWalk;
-			int_access <- tmpBlockFront.int_access;
-			if int_access = 0{valuation <- 0.0;}
-		}
-		weight <- valuation / 2; //Normalization of valuation 0 to 1 according to the model
-		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
+		valuation <- (float_lightning+float_paving+float_sideWalk+float_access)/4;
+		weight <- valuation; //Normalization of valuation 0 to 1 according to the model
+		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best street, 1 <- worst street
 	}
 	//aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
-	aspect default{draw shape color: rgb(0+(255*valuation),50,50,100);}
+	aspect default{draw shape color: rgb(255*valuation,50,50,100);}
 	aspect gray{draw shape color: rgb (174, 174, 174,200);}
 }
 
@@ -222,16 +227,19 @@ species block{
 		valuation <- sum/5;
 	}
 	aspect default{	if(showBlocks){draw shape depth:heigth color: rgb(255-(127*valuation),0+(127*valuation),50,180);}}
+	aspect gray_scale{if(showBlocks){draw shape depth:heigth color: rgb(180*valuation,180*valuation,180*valuation,180);}}
 	aspect simple{ draw shape color: rgb (218, 179, 61,120);}
 }
 
 species block_front{
+	int street_id;
 	string block_frontID;
 	int int_lightning;
 	int int_paving;
 	int int_sideWalk;
 	int int_access;
 	float valuation;
+	string street_name;
 	action init_condition{
 		if int_lightning = 1 { int_lightning <-2; }
 			else if int_lightning = 2 { int_lightning <- 0; }
@@ -269,11 +277,11 @@ species places{
 		if type="interland"{draw square(flux_node_size) color: rgb (232, 64, 126,255) border: #maroon;}
 	}
 	action interactWithStreets{
-		list<road> inRank <- [];
-		inRank <- road at_distance(50);
-		if length(inRank)!=0{
+		list<street> inRank <- [];
+		inRank <- street at_distance(40);
+		if inRank!=[]{
 			ask inRank{
-				valuation <- 100.0;
+				valuation <- 1.0;
 			}
 		}
 	}
@@ -281,7 +289,7 @@ species places{
 
 species targets{ aspect name:default{ draw geometry:triangle(100#m) color:rgb("red");  } }
 
-grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize parallel:true{
+grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	int current_people_inside;
 	//insecurity_perception is refered as the perception of security, and its value depends on social and environmental factors 
 	// such as crimes commited and physical layer conditions. 
@@ -323,7 +331,7 @@ species offender skills:[moving] parent: people edge_species:negRelationships pa
 	list<inhabitant> victims;
 	init{
 		routineCount <- 0;
-		roads_knowledge <- weight_map;
+		streets_knowledge <- weight_map;
 		nbCrimeCommited<-0;
 		attractivityThreshold <- rnd(1,5);
 		speed <- agentSpeed;
@@ -408,7 +416,7 @@ species offender skills:[moving] parent: people edge_species:negRelationships pa
 species inhabitant skills:[moving] parent: people edge_species: relationships parallel:true{
 	init{
 		routineCount <- 0;
-		roads_knowledge <- weight_map;
+		streets_knowledge <- weight_map;
 		do buildRoutine;
 		do updateTarget;
 		loop while: shortestPath = nil or shortestPath = []{
@@ -438,7 +446,7 @@ species people  parent: graph_node edge_species: relationships{
 	point target;
 	path shortestPath;
 	bool victimized;
-	map<road, float> roads_knowledge;
+	map<street, float> streets_knowledge;
 	list<places> routine;
 
 	bool related_to(people other){
@@ -466,8 +474,8 @@ species people  parent: graph_node edge_species: relationships{
 		do updateShortestPath;
 	}
 	action updateShortestPath{
-		if allowRoadsKnowledge{ shortestPath <- path_between(road_network with_weights roads_knowledge, location, target); }
-		else{ shortestPath <- path_between(road_network, location, target); }
+		if allowstreetsKnowledge{ shortestPath <- path_between(street_network with_weights streets_knowledge, location, target); }
+		else{ shortestPath <- path_between(street_network, location, target); }
 	}
 
 	aspect default{
@@ -490,7 +498,7 @@ species walker skills:[moving]{
 		target <- sink_place.location;
 		if(paths[[source_place,sink_place]] != nil){shortest<-paths[[source_place,sink_place]];}
 		else{
-			path newPath <- path_between(road_network, location, target);
+			path newPath <- path_between(street_network, location, target);
 			add [source_place,sink_place]::newPath to: paths;
 			shortest <- newPath;
 		}
@@ -526,11 +534,6 @@ experiment Flow type:gui parallel:false {
 		
 		layout #split;
 		display environment background:#black type:opengl draw_env:false name:"Tejido Social"{
-			graphics "network" refresh:false{
-				loop vertex over: road_network.vertices{
-					draw circle(10) at:point(vertex) color: rgb (68, 151, 183,100);
-				}
-			}
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions = true)) {
 					loop eg over: interaction_graph.edges {
@@ -542,20 +545,20 @@ experiment Flow type:gui parallel:false {
 				}
 
 			}
-			//species road aspect:default;
-			species block aspect:default;
+			species street aspect:default;
+			species block aspect:gray_scale;
 			species walker aspect:default trace:0;
 			species places aspect:interland;
 			overlay position: { 10, 10 } size: { 180 #px, 180 #px } background: # black transparency: 0.5 border: #black rounded: true{
                 float y <- 30#px;
                 draw "Agents: " +  length(walker) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
-				draw square(flux_node_size) color:#limegreen at:{50#px, y+30#px};
+				draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
 				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
 				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);
             }
-            species flux_node aspect:default;
+            species flux_node aspect:default refresh:false;
             species cell aspect:insecurity_perception;
 		}
 		
@@ -576,13 +579,13 @@ experiment Flow type:gui parallel:false {
             		draw edge color:#green;
 	            }
 			}
-			species flux_node_ aspect:default;
+			species flux_node_ aspect:default refresh:false;
 		}	
 	}
 }
 
 experiment GUI type:gui{
-	parameter "Roads_Knowledge" var: allowRoadsKnowledge  <- false;
+	parameter "streets_Knowledge" var: allowstreetsKnowledge  <- false;
 	output{
 		layout #split;
 		display Main type:opengl ambient_light:50{
@@ -612,7 +615,7 @@ experiment GUI type:gui{
 		}
 		display Risk_Areas type:opengl{
 			species cell aspect: crimeAttractiveAreas;
-			species road aspect:default refresh:false;
+			species street aspect:default refresh:false;
 		}
 		
 	}
