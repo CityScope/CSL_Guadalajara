@@ -21,10 +21,10 @@ global torus:false{
 	int interactionDistance parameter: "Interaction distance" category:"Model" <- 50 min: 50 max: 1000;
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
-	bool showCells parameter: "Insecurity perception" category:"Visualization" <- true;
+	bool showCells parameter: "Insecurity perception" category:"Visualization" <- false;
 	bool showPlace parameter: "Show Places" category: "Visualization" <- false;
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
-	bool showBlocks parameter: "Show blocks" category:"Visualization" <- false;
+	bool showBlocks parameter: "Show blocks" category:"Visualization" <- true;
 	bool showNbCrime parameter: "Show Number of Crime" category: "Visualization" <-false;
 	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
 	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
@@ -287,8 +287,6 @@ species places{
 	}
 }
 
-species targets{ aspect name:default{ draw geometry:triangle(100#m) color:rgb("red");  } }
-
 grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	int current_people_inside;
 	//insecurity_perception is refered as the perception of security, and its value depends on social and environmental factors 
@@ -308,9 +306,6 @@ grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	reflex update_transparency when:showCells{
 		transparency <- float(insecurity_perception)/max_insecurity_perception;
 	}
-	action updateNbPeople {
-		current_people_inside <- length(inhabitant inside self);
-	}
 	aspect insecurity_perception{
 		if(showCells){
 			draw shape color:rgb(insecurity_perception_color,transparency) border:rgb(insecurity_perception_color,transparency) empty:true;
@@ -318,173 +313,6 @@ grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	}
 	aspect crimeAttractiveAreas{
 		draw shape color:rgb(current_people_inside*100, 0,0,128) border:rgb(current_people_inside*100, 0, 0, 128);	
-	}
-}
-
-species offender skills:[moving] parent: people edge_species:negRelationships parallel:true{
-
-	string state <- "Arrived" ;
-	int attractivityThreshold;
-	int nbCrimeCommited;
-	int timeWaiting;
-	int maxWaitingTime<-50;
-	list<inhabitant> victims;
-	init{
-		routineCount <- 0;
-		streets_knowledge <- weight_map;
-		nbCrimeCommited<-0;
-		attractivityThreshold <- rnd(1,5);
-		speed <- agentSpeed;
-		do buildRoutine;
-		do updateTarget;
-		loop while: shortestPath = nil or shortestPath = []{
-			routine[routineCount] <- places[rnd(length(places)-1)];
-			target <- routine[routineCount].location;
-			do updateShortestPath;
-		}
-		create targets{ location <- myself.target; }	
-	}
-	action move{
-		if state="OnTheWay"{
-			if location = target{state <- "Arrived";}
-			else{do moveForward;}
-		}
-		else if state="WaitingToCommitCrime"{
-			inhabitant victim <- one_of(inhabitant at_distance(offenderPerception));
-			if(victim != nil){
-				do commitCrime(victim);
-				state <- "InRoutine";
-			}
-			if timeWaiting>=maxWaitingTime{state<-"InRoutine";}
-			timeWaiting <- timeWaiting + 1;
-		}
-		else if state="Arrived"{
-			if(flip(0.5)){timeWaiting<-0;state <- "WaitingToCommitCrime";}
-			else{state <- "InRoutine";}
-		}
-		else if state="InRoutine"{
-			do updateTarget;
-			loop while: shortestPath = nil or shortestPath = []{
-				routine[routineCount] <- places[rnd(length(places)-1)];
-				target <- routine[routineCount].location;
-				do updateShortestPath;
-			}
-			ask targets{ location<-myself.target; }
-			state <- "OnTheWay";
-		}
-	}
-	action commitCrime(inhabitant victim){
-		cell currentCell <- cell closest_to(self);
-		victim.victimized <- true;
-		currentCell.insecurity_perception <- currentCell.insecurity_perception + 1;
-		totalCrimes <- totalCrimes + 1;
-		nbCrimeCommited<-nbCrimeCommited+1;
-		add victim to:victims;
-	}
-	aspect default{
-		if (state="onTheWay"){ draw circle(25) color:color_type["offender"];}
-		else{draw circle(10) color:color_type["offender"];}
-		if(showPerception){
-			draw circle(offenderPerception) empty:true color:#red;
-			draw circle(offenderPerception) color:rgb(255,0,0,0.5);
-		}
-		if(showNbCrime){
-			draw "crime:" + nbCrimeCommited size:6#px color:#white;
-		}
-		if(showOffenderTarget){
-			draw line(location,target) width:0.5 color:color_type["offender"];
-		}
-		if(showOffenderPath){
-	 	 	draw current_path.shape color: color_type["offender"];
-		}
-	}	
-	action moveForward{
-		speed <- agentSpeed;
-		do follow path:shortestPath move_weights: shortestPath.edges as_map(each::each.perimeter);
-		if(location = target){
-			do updateTarget;
-			loop while: shortestPath = nil or shortestPath = []{
-				routine[routineCount] <- places[rnd(length(places)-1)];
-				target <- routine[routineCount].location;
-				do updateShortestPath;
-			}
-			ask targets{ location<-myself.target; }
-		}
-	}
-}
-
-species inhabitant skills:[moving] parent: people edge_species: relationships parallel:true{
-	init{
-		routineCount <- 0;
-		streets_knowledge <- weight_map;
-		do buildRoutine;
-		do updateTarget;
-		loop while: shortestPath = nil or shortestPath = []{
-			routine[routineCount] <- places[rnd(length(places)-1)];
-			target <- routine[routineCount].location;
-			do updateShortestPath;
-		}
-		create targets{ location <- myself.target; }
-	}
-	action move{
-		speed <- agentSpeed;
-		do follow path:shortestPath move_weights: shortestPath.edges as_map(each::each.perimeter);
-		if(location = target){
-			do updateTarget;
-			loop while: shortestPath = nil or shortestPath = []{
-				routine[routineCount] <- places[rnd(length(places)-1)];
-				target <- routine[routineCount].location;
-				do updateShortestPath;
-			}
-			ask targets{ location<-myself.target; }
-		}
-	}
-}
-
-species people  parent: graph_node edge_species: relationships{
-	int routineCount;
-	point target;
-	path shortestPath;
-	bool victimized;
-	map<street, float> streets_knowledge;
-	list<places> routine;
-
-	bool related_to(people other){
-	  	using topology:topology(world) {return (self.location distance_to other.location < interactionDistance);}
-	}
-	
-	action buildRoutine{
-		int tmpRnd <- rnd(length(places)-1);
-		add places[tmpRnd] to:routine;
-		location <- routine[0].location;
-		loop times: 2{
-			seed <- rnd(100.0);
-			tmpRnd <- rnd(length(places)-1);
-			add places[tmpRnd] to: routine;
-		}
-	}
-	action updateTarget{
-		if length(routine)-1 = routineCount{
-			target <- routine[0].location;
-			routineCount <- 0;
-		}else{
-			routineCount <- routineCount + 1;
-			target <- routine[routineCount].location;	
-		}
-		do updateShortestPath;
-	}
-	action updateShortestPath{
-		if allowstreetsKnowledge{ shortestPath <- path_between(street_network with_weights streets_knowledge, location, target); }
-		else{ shortestPath <- path_between(street_network, location, target); }
-	}
-
-	aspect default{
-		if (victimized = true){
-	      draw circle(35) color:color_type["victim"] ;
-		}
-		else{
-		  draw circle(15) color:color_type["people"];	
-		}
 	}
 }
 
@@ -504,7 +332,7 @@ species walker skills:[moving]{
 		}
 	}
 	aspect default{
-		draw circle(1.5) color: rgb (255, 255, 0,200);
+		draw circle(0.5) color: rgb (255, 255, 0,200);
 	}
 	reflex moving{
 		if(location = target){do die;}
@@ -525,9 +353,6 @@ species walker skills:[moving]{
 	}
 }
 
-species relationships parent: base_edge {aspect default {if showInteractions{draw shape color:#blue;}}}
-species negRelationships parent: base_edge {aspect default {if showInteractions{draw shape color:#red;}}}
-
 experiment Flow type:gui parallel:false {
 	
 	output{
@@ -545,7 +370,6 @@ experiment Flow type:gui parallel:false {
 				}
 
 			}
-			species street aspect:default;
 			species block aspect:gray_scale;
 			species walker aspect:default trace:0;
 			species places aspect:interland;
@@ -558,10 +382,9 @@ experiment Flow type:gui parallel:false {
 				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
 				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);
             }
-            species flux_node aspect:default refresh:false;
             species cell aspect:insecurity_perception;
 		}
-		
+		/*
 		display network background:#black type:opengl name:"Network analysis" draw_env:false{
 			graphics "nodes"{
             	point reference <- location;
@@ -580,43 +403,6 @@ experiment Flow type:gui parallel:false {
 	            }
 			}
 			species flux_node_ aspect:default refresh:false;
-		}	
-	}
-}
-
-experiment GUI type:gui{
-	parameter "streets_Knowledge" var: allowstreetsKnowledge  <- false;
-	output{
-		layout #split;
-		display Main type:opengl ambient_light:50{
-			species block aspect:default;
-			species inhabitant aspect:default;
-			species relationships aspect:default;
-			species negRelationships aspect:default;
-			species places aspect:default;
-			species offender;
-			overlay position: { 5, 5 } size: { 180 #px, 200 #px } background: # black transparency: 0.5 border: #black rounded: true
-            {
-				float y <- 30#px;
-				loop type over: color_type.keys
-				{
-					draw circle(5#px) at: { 20#px, y } color: color_type[type] border: color_type[type]+1;
-					draw string(type) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 12);
-   					y <- y + 25#px;
-               }
-   				draw "Crimes: " +  totalCrimes at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
-            }
-		}
-		display Output type:opengl{
-			chart "Social Fabric" type: radar position:{5,5} background: # black x_serie_labels: [ "+ Encounters", "- Encounters", "+ Safety perception", "- Safety perception", "Segregation"] color:#white series_label_position: xaxis
-			{
-				data "Encounters" value: [encounters/maxEncounters,negEncounters/maxNegEncounters,0.1,0.1,0.1] color: # green;
-			}
-		}
-		display Risk_Areas type:opengl{
-			species cell aspect: crimeAttractiveAreas;
-			species street aspect:default refresh:false;
-		}
-		
+		}*/
 	}
 }
