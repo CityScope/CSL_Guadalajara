@@ -226,8 +226,8 @@ species block{
 		int sum <- int_lightning+int_sidewalk+int_paving+(1-int_access)+int_trees;
 		valuation <- sum/5;
 	}
-	aspect default{	if(showBlocks){draw shape depth:heigth color: rgb(255-(127*valuation),0+(127*valuation),50,180);}}
-	aspect gray_scale{if(showBlocks){draw shape depth:heigth color: rgb(180*valuation,180*valuation,180*valuation,180);}}
+	aspect default{	if(showBlocks){draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,180);}}
+	aspect gray_scale{if(showBlocks){draw shape color: rgb(180*valuation,180*valuation,180*valuation,180);}}
 	aspect simple{ draw shape color: rgb (218, 179, 61,120);}
 }
 
@@ -332,7 +332,7 @@ species walker skills:[moving]{
 		}
 	}
 	aspect default{
-		draw circle(0.5) color: rgb (255, 255, 0,200);
+		draw circle(0.45) color: rgb (255, 255, 0,200);
 	}
 	reflex moving{
 		if(location = target){do die;}
@@ -372,8 +372,7 @@ experiment Flow type:gui parallel:false {
 			}
 			species block aspect:gray_scale;
 			species walker aspect:default trace:0;
-			species places aspect:interland;
-			overlay position: { 10, 10 } size: { 180 #px, 180 #px } background: # black transparency: 0.5 border: #black rounded: true{
+			/*overlay position: { 10, 10 } size: { 180 #px, 180 #px } background: # black transparency: 0.5 border: #black rounded: true{
                 float y <- 30#px;
                 draw "Agents: " +  length(walker) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
@@ -381,7 +380,7 @@ experiment Flow type:gui parallel:false {
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
 				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
 				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);
-            }
+            }*/
             species cell aspect:insecurity_perception;
 		}
 		/*
