@@ -9,45 +9,20 @@
 model SocialFabric
 global torus:false{
 
-	//Initialization parameters 
-	string case_study parameter: "Case study:" category: "Initialization" <-"sixcorners" among:["centinela", "miramar", "sixcorners"];
-	int nbAgents parameter: "Number of people" category: "Initialization" <-0 min:0 max: 1000;
-	int nbOffenders parameter: "Number of offenders" category: "Initialization" <-0 min:0 max: 100;
-	bool allowstreetsKnowledge parameter: "Allow knoledge" category: "Initialization" <- false;
-	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 15 min: 10 max: 100;
-	int offenderPerception parameter: 'Offender Perception Distance:' category: 'Model' <- 100 min: 10 max: 500;
+	//Environmental parameters 
+	string case_study parameter: "Case study:" category: "Environment" <-"fivecorners" among:["centinela", "miramar", "fivecorners"];
+	int nbAgents parameter: "Number of people" category: "Environment" <-0 min:0 max: 1000;
 	//Model parameters
 	bool showInteractions parameter: "Show encounters" category:"Model" <- false;
-	int interactionDistance parameter: "Interaction distance" category:"Model" <- 50 min: 50 max: 1000;
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
-	bool showCells parameter: "Insecurity perception" category:"Visualization" <- false;
-	bool showPlace parameter: "Show Places" category: "Visualization" <- false;
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
-	bool showBlocks parameter: "Show blocks" category:"Visualization" <- true;
-	bool showNbCrime parameter: "Show Number of Crime" category: "Visualization" <-false;
-	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
-	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
 	
-	int timeStep;
-	graph street_network;
-	map<street, float> weight_map;
-	list<int> usedstreets;
+	graph road_network;
+	map<road, float> weight_map;
 	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
 	
-	//Crimes
-	int totalCrimes;
-	
-	//Output variables
-	int encounters;
-	float maxEncounters;
-	int negEncounters;
-	float maxNegEncounters;
-	int lights;
-	int paving;
-	int sideWalks;
-
-	//peoples
+	//people
 	int nbpeoples <- 0;
 	int flux_node_size <- 20;
 	list<flux_node> source_places <- [];
@@ -57,8 +32,8 @@ global torus:false{
 	graph<people,people> interaction_graph;
 
 	date starting_date <- date("now");
-	file streets_file <- file("/gis/"+case_study+"/roads.shp");
-	geometry shape <- envelope(streets_file);
+	file roads_file <- file("/gis/"+case_study+"/roads.shp");
+	geometry shape <- envelope(roads_file);
 	init{
 		
 		file blocks_file <- nil;
@@ -100,37 +75,27 @@ global torus:false{
 			else{ int_trees <- 0; }
 			do updateValuation;
 		}
-		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), street_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
-		create street from:streets_file with:[street_id::int(read("CVEVIAL"))];
+		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), road_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
+		create road from:roads_file with:[road_id::int(read("CVEVIAL"))];
 		do mapValues;
-		create places from: interlands_file with:[type::"interland"]{do interactWithStreets;}
-		//create places from: places_file with:[id::string(read("id")),name_str::string(read("nom_estab"))];			
-		weight_map <- street as_map(each::each.valuation);
-		street_network <- as_edge_graph(street);
-		usedstreets <- list_with(length(street_network),-1);
-		//create inhabitant number:nbAgents;
-		//create offender number:nbOffenders;
+		create places from: interlands_file with:[type::"interland"]{do interactWithroads;}				
+		weight_map <- road as_map(each::each.valuation);
+		road_network <- as_edge_graph(road);
+		create police_patrol number:10;
 	
 		create flux_node from: file("/gis/"+case_study+"/flux.shp") with:[id::int(read("id")),way::string(read("way"))];
 		if length(flux_node where(each.way="input"))=0{
-			create flux_node with:[id::-1,way::"input",location::one_of(street_network.vertices)]{fluxid<-fluxid+1;}
+			create flux_node with:[id::-1,way::"input",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
 		}
 		if length(flux_node where(each.way="output"))=0{
-			create flux_node with:[id::0,way::"output",location::one_of(street_network.vertices)]{fluxid<-fluxid+1;}
+			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
 		}
 		
-		totalCrimes<-0;
-		maxEncounters <- nbAgents*(nbAgents-1)/2;
-		maxNegEncounters <- nbOffenders*(nbOffenders-1)/2;
-		write "Total of places: "+length(places);
-		write "Total of streets: "+length(street); 
+		write "Total of roads: "+length(road); 
 	}
 	
 	reflex main{
-		create people number:3;
-	}
-	reflex updateGraph when: (showInteractions = true) {
-		interaction_graph <- graph<people, people>(people as_distance_graph (interactionDistance));
+		create people number:1;
 	}
 	user_command "source_place here"{
 		point newPoint <- #user_location;
@@ -144,23 +109,23 @@ global torus:false{
 		create places{
 			type <- "interland";
 			location <- #user_location;
-			do interactWithStreets;
+			do interactWithroads;
 		}
-		weight_map <- street as_map(each::each.valuation);
+		weight_map <- road as_map(each::each.valuation);
 		do rebuildPaths;
 	}
 	action rebuildPaths{
 		loop keylist over:paths.keys{
-			put path_between(street_network with_weights weight_map, keylist[0], keylist[1]) at:keylist in:paths;
+			put path_between(road_network with_weights weight_map, keylist[0], keylist[1]) at:keylist in:paths;
 		}
 	}
 	action mapValues{
-	//Information about streets condition is in block fronts file, copy it to street species.
+	//Information about roads condition is in block fronts file, copy it to road species.
 		loop bf_element over:block_front{
-			int st_id <- bf_element.street_id;
-			list<street> auxStreets <- street where (each.street_id = st_id);
-			if(auxStreets!=[]){
-				ask auxStreets{
+			int st_id <- bf_element.road_id;
+			list<road> auxroads <- road where (each.road_id = st_id);
+			if(auxroads!=[]){
+				ask auxroads{
 					float_lightning <- bf_element.int_lightning/2;
 					float_paving <- bf_element.int_paving/2;
 					float_sideWalk <- bf_element.int_sideWalk/2;
@@ -187,8 +152,8 @@ species flux_node_ mirrors:flux_node{
 	}
 }
 
-species street{
-	int street_id;
+species road{
+	int road_id;
 	float valuation;
 	float weight;
 	float float_lightning;
@@ -198,7 +163,7 @@ species street{
 	action init_condition{
 		valuation <- (float_lightning+float_paving+float_sideWalk+float_access)/4;
 		weight <- valuation; //Normalization of valuation 0 to 1 according to the model
-		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best street, 1 <- worst street
+		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
 	}
 	//aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
 	aspect default{draw shape color: rgb(255*valuation,50,50,100);}
@@ -226,20 +191,18 @@ species block{
 		int sum <- int_lightning+int_sidewalk+int_paving+(1-int_access)+int_trees;
 		valuation <- sum/5;
 	}
-	aspect default{	if(showBlocks){draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,180);}}
-	aspect gray_scale{if(showBlocks){draw shape color: rgb(180*valuation,180*valuation,180*valuation,180);}}
-	aspect simple{ draw shape color: rgb (218, 179, 61,120);}
+	aspect gray_scale{draw shape color: rgb(180*valuation,180*valuation,180*valuation,180);}
 }
 
 species block_front{
-	int street_id;
+	int road_id;
 	string block_frontID;
 	int int_lightning;
 	int int_paving;
 	int int_sideWalk;
 	int int_access;
 	float valuation;
-	string street_name;
+	string road_name;
 	action init_condition{
 		if int_lightning = 1 { int_lightning <-2; }
 			else if int_lightning = 2 { int_lightning <- 0; }
@@ -269,16 +232,14 @@ species places{
 	string type;
 	init{ height <- float(50+rnd(100)); }
 	aspect default{ 
-		if(showPlace){
-		  draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo depth:height;	
-		}
+		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo depth:height;
 	}
 	aspect interland{
 		if type="interland"{draw square(flux_node_size) color: rgb (232, 64, 126,255) border: #maroon;}
 	}
-	action interactWithStreets{
-		list<street> inRank <- [];
-		inRank <- street at_distance(40);
+	action interactWithroads{
+		list<road> inRank <- [];
+		inRank <- road at_distance(40);
 		if inRank!=[]{
 			ask inRank{
 				valuation <- 1.0;
@@ -287,38 +248,15 @@ species places{
 	}
 }
 
-grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
-	int current_people_inside;
-	//insecurity_perception is refered as the perception of security, and its value depends on social and environmental factors 
-	// such as crimes commited and physical layer conditions. 
-	int insecurity_perception; 
-	int max_insecurity_perception <- 100;
-	rgb insecurity_perception_color <- rgb(255,255,255);
-	float transparency <- 0.0;
-				 
-	init{
-		current_people_inside <- 0;
-		insecurity_perception <- 0;
-	}
-	reflex update_color when:showCells{
-		insecurity_perception_color <- rgb(transparency*100,transparency*30,transparency*30);
-	}
-	reflex update_transparency when:showCells{
-		transparency <- float(insecurity_perception)/max_insecurity_perception;
-	}
-	aspect insecurity_perception{
-		if(showCells){
-			draw shape color:rgb(insecurity_perception_color,transparency) border:rgb(insecurity_perception_color,transparency) empty:true;
-		}
-	}
-	aspect crimeAttractiveAreas{
-		draw shape color:rgb(current_people_inside*100, 0,0,128) border:rgb(current_people_inside*100, 0, 0, 128);	
-	}
-}
-
 species people skills:[moving]{
 	point target;
 	path shortest;
+	map<string,float> indicators_values;  //indicator->value
+	map<string,float> indicators_weights; //indicator->weight
+	float safety_perception;
+	float vision_ratio;
+	float profile;
+	
 	init{
 		flux_node source_place <- one_of(flux_node);
 		location <- source_place.location;
@@ -326,49 +264,64 @@ species people skills:[moving]{
 		target <- sink_place.location;
 		if(paths[[source_place,sink_place]] != nil){shortest<-paths[[source_place,sink_place]];}
 		else{
-			path newPath <- path_between(street_network, location, target);
+			path newPath <- path_between(road_network, location, target);
 			add [source_place,sink_place]::newPath to: paths;
 			shortest <- newPath;
 		}
-	}
-	aspect default{
-		draw circle(0.45) color: rgb (255, 255, 0,200);
+		safety_perception <- 0.0;
+		vision_ratio <- 50.0#m;
+		add "police_patrols"::0.45 to:indicators_weights;
+		add "lighting_uniformity_ratio"::0.45 to:indicators_weights;
+		add "pavement_condition"::0.1 to:indicators_weights;
 	}
 	reflex moving{
 		if(location = target){do die;}
-		speed <- 5*agentSpeed;
+		speed <- 2*agentSpeed;
 		do follow path:shortest move_weights: shortest.edges as_map(each::each.perimeter);
-		do update_insecurity_map;
 	}
-	action update_insecurity_map{
-		list<cell> tmp <- cell overlapping(shape);
-		if(tmp!=[]){
-			ask tmp{
-				insecurity_perception <- insecurity_perception+1;
-				if(insecurity_perception>max_insecurity_perception){
-					insecurity_perception <- max_insecurity_perception;
-				}
-			}
+	reflex update_indicators{
+		//FORMAL SURVEILLANCE
+		//police_patrols_range
+		list<police_patrol> auxPolice <- police_patrol at_distance(vision_ratio);
+		put auxPolice!=[]? 1.0:0.0 at:"police_patrols" in:indicators_values;
+		
+		//ARTIFICIAL LIGHTING
+		//lighting_uniformity_ratio
+		list<road> auxLighting <- road at_distance(vision_ratio);
+		put auxLighting!=[]? auxLighting[0].float_lightning:0.0 at:"lighting_uniformity_ratio" in:indicators_values;
+		
+		//NATURAL SURVEILLANCE
+		//pavement_condition
+		list<road> auxPavement <- road at_distance(vision_ratio);
+		put auxPavement!=[]? auxPavement[0].float_paving:0.0 at:"pavement_condition" in:indicators_values;
+		
+		
+	}
+	reflex update_perception{
+		float sum<-0.0;
+		loop auxKey over:indicators_values.keys{
+			sum <- sum + indicators_values[auxKey]*indicators_weights[auxKey];
 		}
+		safety_perception <- sum;
+	}
+	aspect default{
+		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
+		draw circle(0.45) color: safety_color;
+		if(showPerception){draw circle(vision_ratio) border:safety_color empty:true;}
 	}
 }
 
-species police skills:[driving]{
-	point target;
+species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
+	list<point> destinations;
 	image_file car;
-	path route;
 	init{
-		location <- any_location_in(one_of(street));
-		target <- any_location_in(one_of(street));
-		route <- path_between(street_network,location,target);
-		car <- image_file("/img/police.png");
+		location <- any_location_in(one_of(road));
 	}
 	reflex moving{
-		if(location=target){target <- any_location_in(one_of(street));}
-		do follow_driving path:route living_space:3.0 speed:2.0;
+		do wander;
 	}
 	aspect car{
-		draw car;
+		draw rectangle(3,2) color:#red;
 	}
 }
 
@@ -390,17 +343,17 @@ experiment Flow type:gui parallel:false {
 
 			}
 			species block aspect:gray_scale;
-			species people aspect:default trace:0;
-			/*overlay position: { 10, 10 } size: { 180 #px, 180 #px } background: # black transparency: 0.5 border: #black rounded: true{
+			species people aspect:default;
+			species police_patrol aspect:car;
+			overlay position: { 10, 10 } size: { 50 #px, 50 #px } background: # black border: #black rounded: true{
                 float y <- 30#px;
                 draw "Agents: " +  length(people) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
-				draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
+				/*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
 				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
-				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);
-            }*/
-            species cell aspect:insecurity_perception;
+				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);*/
+            }
 		}
 		/*
 		display network background:#black type:opengl name:"Network analysis" draw_env:false{
