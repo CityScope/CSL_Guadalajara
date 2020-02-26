@@ -47,14 +47,14 @@ global torus:false{
 	int paving;
 	int sideWalks;
 
-	//Walkers
-	int nbWalkers <- 0;
+	//peoples
+	int nbpeoples <- 0;
 	int flux_node_size <- 20;
 	list<flux_node> source_places <- [];
 	list<flux_node> sink_places <- [];
 	int fluxid <- 1;
 	map<list<flux_node>,path> paths <- nil;
-	graph<walker,walker> interaction_graph;
+	graph<people,people> interaction_graph;
 
 	date starting_date <- date("now");
 	file streets_file <- file("/gis/"+case_study+"/roads.shp");
@@ -127,10 +127,10 @@ global torus:false{
 	}
 	
 	reflex main{
-		create walker number:3;
+		create people number:3;
 	}
 	reflex updateGraph when: (showInteractions = true) {
-		interaction_graph <- graph<walker, walker>(walker as_distance_graph (interactionDistance));
+		interaction_graph <- graph<people, people>(people as_distance_graph (interactionDistance));
 	}
 	user_command "source_place here"{
 		point newPoint <- #user_location;
@@ -316,7 +316,7 @@ grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 	}
 }
 
-species walker skills:[moving]{
+species people skills:[moving]{
 	point target;
 	path shortest;
 	init{
@@ -353,6 +353,25 @@ species walker skills:[moving]{
 	}
 }
 
+species police skills:[driving]{
+	point target;
+	image_file car;
+	path route;
+	init{
+		location <- any_location_in(one_of(street));
+		target <- any_location_in(one_of(street));
+		route <- path_between(street_network,location,target);
+		car <- image_file("/img/police.png");
+	}
+	reflex moving{
+		if(location=target){target <- any_location_in(one_of(street));}
+		do follow_driving path:route living_space:3.0 speed:2.0;
+	}
+	aspect car{
+		draw car;
+	}
+}
+
 experiment Flow type:gui parallel:false {
 	
 	output{
@@ -362,8 +381,8 @@ experiment Flow type:gui parallel:false {
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions = true)) {
 					loop eg over: interaction_graph.edges {
-						walker src <- interaction_graph source_of eg;
-						walker target <- interaction_graph target_of eg;
+						people src <- interaction_graph source_of eg;
+						people target <- interaction_graph target_of eg;
 						geometry edge_geom <- geometry(eg);
 						draw line(edge_geom.points) color: rgb(0, 125, 0, 75);
 					}
@@ -371,10 +390,10 @@ experiment Flow type:gui parallel:false {
 
 			}
 			species block aspect:gray_scale;
-			species walker aspect:default trace:0;
+			species people aspect:default trace:0;
 			/*overlay position: { 10, 10 } size: { 180 #px, 180 #px } background: # black transparency: 0.5 border: #black rounded: true{
                 float y <- 30#px;
-                draw "Agents: " +  length(walker) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
+                draw "Agents: " +  length(people) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
