@@ -10,7 +10,7 @@ model SocialFabric
 global torus:false{
 
 	//Environmental parameters 
-	string case_study parameter: "Case study:" category: "Environment" <-"fivecorners" among:["centinela", "miramar", "fivecorners"];
+	string case_study parameter: "Case study:" category: "Environment" <-"sixcorners" among:["centinela", "miramar", "sixcorners"];
 	int nbAgents parameter: "Number of people" category: "Environment" <-0 min:0 max: 1000;
 	//Model parameters
 	bool showInteractions parameter: "Show encounters" category:"Model" <- false;
@@ -254,7 +254,7 @@ species places{
 }
 
 species people skills:[moving]{
-	point target;
+	point target; //importar datos de csv para rutinas, relaciones, perfil. 
 	path shortest;
 	map<string,float> indicators_values;  //indicator->value
 	map<string,float> indicators_weights; //indicator->weight
@@ -285,21 +285,33 @@ species people skills:[moving]{
 		do follow path:shortest move_weights: shortest.edges as_map(each::each.perimeter);
 	}
 	reflex update_indicators{
-		//FORMAL SURVEILLANCE
+		//C1__FORMAL SURVEILLANCE
 		//police_patrols_range
 		list<police_patrol> auxPolice <- police_patrol at_distance(vision_ratio);
 		put auxPolice!=[]? 1.0:0.0 at:"police_patrols" in:indicators_values;
 		
-		//ARTIFICIAL LIGHTING
+		//C2__ARTIFICIAL LIGHTING
 		//lighting_uniformity_ratio
+			//TO DO: differenciate between daytime and nighttime
 		list<road> auxLighting <- road at_distance(vision_ratio);
 		put auxLighting!=[]? auxLighting[0].float_lightning:0.0 at:"lighting_uniformity_ratio" in:indicators_values;
 		
-		//NATURAL SURVEILLANCE
+		//C7__MAINTENANCE
 		//pavement_condition
 		list<road> auxPavement <- road at_distance(vision_ratio);
 		put auxPavement!=[]? auxPavement[0].float_paving:0.0 at:"pavement_condition" in:indicators_values;
 		
+		//C1__NATURAL SURVEILLANCE
+		//active_pedestrians (interaction)
+			//1.número de personas que interactúan - Radio 1
+				// M+W+N+N    +  M
+				// W+N+N    + car   (kidnapping)
+				// relación de los agentes niños con agentes adultos por ciertas horas del día
+			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
+			//3.Si no se conocen: W-M   Si se conocen: W-W
+		
+		
+
 		
 	}
 	reflex update_perception{
