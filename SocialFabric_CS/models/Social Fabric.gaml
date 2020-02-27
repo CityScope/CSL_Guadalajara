@@ -81,7 +81,8 @@ global torus:false{
 		create places from: interlands_file with:[type::"interland"]{do interactWithroads;}				
 		weight_map <- road as_map(each::each.valuation);
 		road_network <- as_edge_graph(road);
-		create police_patrol number:10;
+		create police_patrol number:10{location <- any_location_in(one_of(road));}
+	
 	
 		create flux_node from: file("/gis/"+case_study+"/flux.shp") with:[id::int(read("id")),way::string(read("way"))];
 		if length(flux_node where(each.way="input"))=0{
@@ -96,6 +97,10 @@ global torus:false{
 	
 	reflex main{
 		create people number:1;
+	}
+	user_command "police_patrol"{
+		point newPoint <- #user_location;
+		create police_patrol with:[location::newPoint];
 	}
 	user_command "source_place here"{
 		point newPoint <- #user_location;
@@ -314,9 +319,7 @@ species people skills:[moving]{
 species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 	list<point> destinations;
 	image_file car;
-	init{
-		location <- any_location_in(one_of(road));
-	}
+	init{}
 	reflex moving{
 		do wander;
 	}
