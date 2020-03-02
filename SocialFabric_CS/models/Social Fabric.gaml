@@ -10,7 +10,7 @@ model SocialFabric
 global torus:false{
 
 	//Environmental parameters 
-	string case_study parameter: "Case study:" category: "Environment" <-"sixcorners" among:["centinela", "miramar", "sixcorners"];
+	string case_study parameter: "Case study:" category: "Environment" <-"fivecorners" among:["centinela", "miramar", "fivecorners"];
 	int nbAgents parameter: "Number of people" category: "Environment" <-0 min:0 max: 1000;
 	//Model parameters
 	bool showInteractions parameter: "Show encounters" category:"Model" <- false;
@@ -30,8 +30,11 @@ global torus:false{
 	int fluxid <- 1;
 	map<list<flux_node>,path> paths <- nil;
 	graph<people,people> interaction_graph;
+	
+	//SUNLIGHT
+	float sunlight <- 0.0 update:-0.025*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1; //Estimated function to get the sunlight [0.0 to 1.0]
 
-	date starting_date <- date("now");
+	date starting_date <- date([2020,3,3,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
 	geometry shape <- envelope(roads_file);
 	init{
@@ -91,12 +94,12 @@ global torus:false{
 		if length(flux_node where(each.way="output"))=0{
 			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
 		}
-		
+		create women number:100;
 		write "Total of roads: "+length(road); 
 	}
 	
 	reflex main{
-		create people number:1;
+		//create women number:1;
 	}
 	user_command "police_patrol"{
 		point newPoint <- #user_location;
@@ -196,7 +199,7 @@ species block{
 		int sum <- int_lightning+int_sidewalk+int_paving+(1-int_access)+int_trees;
 		valuation <- sum/5;
 	}
-	aspect gray_scale{draw shape color: rgb(180*valuation,180*valuation,180*valuation,180);}
+	aspect gray_scale{draw shape color: rgb(sunlight*valuation*180,sunlight*valuation*180,sunlight*valuation*180,180);}
 }
 
 species block_front{
@@ -254,37 +257,26 @@ species places{
 }
 
 species people skills:[moving]{
-	point target; //importar datos de csv para rutinas, relaciones, perfil. 
-	path shortest;
+	point target; //importar datos de csv para rutinas, relaciones, perfil.
 	map<string,float> indicators_values;  //indicator->value
 	map<string,float> indicators_weights; //indicator->weight
 	float safety_perception;
 	float vision_ratio;
-	float profile;
-	
 	init{
-		flux_node source_place <- one_of(flux_node);
-		location <- source_place.location;
-		flux_node sink_place <- one_of(flux_node);
-		target <- sink_place.location;
-		if(paths[[source_place,sink_place]] != nil){shortest<-paths[[source_place,sink_place]];}
-		else{
-			path newPath <- path_between(road_network, location, target);
-			add [source_place,sink_place]::newPath to: paths;
-			shortest <- newPath;
-		}
 		safety_perception <- 0.0;
 		vision_ratio <- 50.0#m;
-		add "police_patrols"::0.45 to:indicators_weights;
-		add "lighting_uniformity_ratio"::0.45 to:indicators_weights;
-		add "pavement_condition"::0.1 to:indicators_weights;
 	}
-	reflex moving{
-		if(location = target){do die;}
-		speed <- 2*agentSpeed;
-		do follow path:shortest move_weights: shortest.edges as_map(each::each.perimeter);
+	reflex update_perception{
+		float sum<-0.0;
+		loop auxKey over:indicators_values.keys{
+			sum <- sum + indicators_values[auxKey]*indicators_weights[auxKey];
+		}
+		safety_perception <- sum;
 	}
 	reflex update_indicators{
+		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
+		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
+		
 		//C1__FORMAL SURVEILLANCE
 		//police_patrols_range
 		list<police_patrol> auxPolice <- police_patrol at_distance(vision_ratio);
@@ -308,24 +300,73 @@ species people skills:[moving]{
 				// W+N+N    + car   (kidnapping)
 				// relación de los agentes niños con agentes adultos por ciertas horas del día
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
-			//3.Si no se conocen: W-M   Si se conocen: W-W
-		
-		
+			//3.Si no se conocen: W-M   Si se conocen: W-W		
+	}
+}
 
+species women parent:people{
+	map<string,point> activities_locations;
+	path current_route;
+	string current_state;
+	point current_objective_location;
+	
+	init{
+		/*ROUTINE
+		 *Possible activities: staying, on_the_way.
+		* */ 
+		add "police_patrols"::0.45 to:indicators_weights;
+		add "lighting_uniformity_ratio"::0.45 to:indicators_weights;
+		add "pavement_condition"::0.1 to:indicators_weights;
+		add "home"::any_location_in(one_of(road)) to: activities_locations;
+		add "work"::any_location_in(one_of(road)) to: activities_locations;
+		add "leisure"::any_location_in(one_of(road)) to: activities_locations;
+		current_state <- "stay";
+		safety_perception <- 0.0;
+		vision_ratio <- 50.0#m;
+		location <- activities_locations["home"];
+	}
+	reflex make_routine{
+		//People give indicators different values depending on the hour of the day.
+		if list(current_date)[3] >= 7 and list(current_date)[3] < 17 and current_state = "stay"{
+			//morning
+			current_objective_location <- activities_locations["work"];
+			current_route <- path_between(road_network, location, current_objective_location);
+			current_state <- "on_the_way";
+			
+		}
+		else if list(current_date)[3] >= 17 and list(current_date)[3] < 21 and current_state = "stay"{
+			//time to go
+			current_objective_location <- activities_locations["leisure"];
+			current_route <- path_between(road_network, location, current_objective_location);
+			current_state <- "on_the_way";
+		}
+		else if list(current_date)[3] >= 21 and current_state = "stay" or list(current_date)[3] < 7 and current_state = "stay"{
+			//time to go home
+			current_objective_location <- activities_locations["home"];
+			current_route <- path_between(road_network, location, current_objective_location);
+			current_state <- "on_the_way";
+		}
 		
 	}
-	reflex update_perception{
-		float sum<-0.0;
-		loop auxKey over:indicators_values.keys{
-			sum <- sum + indicators_values[auxKey]*indicators_weights[auxKey];
+	reflex execute_routine{
+		if location = current_objective_location{
+			current_state <- "stay";
 		}
-		safety_perception <- sum;
+		if current_state = "on_the_way"{
+			do follow path:current_route move_weights:current_route.edges as_map(each::each.perimeter);
+		}
+		else if current_state = "stay"{
+			do wander;
+		}
 	}
 	aspect default{
 		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
-		draw circle(0.45) color: safety_color;
+		draw circle(0.65) color: safety_color;
 		if(showPerception){draw circle(vision_ratio) border:safety_color empty:true;}
 	}
+}
+
+species man parent:people{
 }
 
 species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
@@ -345,7 +386,7 @@ experiment Flow type:gui parallel:false {
 	output{
 		
 		layout #split;
-		display environment background:#black type:opengl draw_env:false name:"Tejido Social"{
+		display environment background:#black type:opengl draw_env:false name:"Tejido Social" ambient_light:sunlight{
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions = true)) {
 					loop eg over: interaction_graph.edges {
@@ -358,11 +399,14 @@ experiment Flow type:gui parallel:false {
 
 			}
 			species block aspect:gray_scale;
-			species people aspect:default;
+			species women aspect:default;
 			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 50 #px, 50 #px } background: # black border: #black rounded: true{
                 float y <- 30#px;
-                draw "Agents: " +  length(people) at: { 40#px, y + 4#px } color: #white font: font("SansSerif", 15);
+                draw "Women: " +  length(women) at: { 40#px, y + 5#px } color: #white font: font("SansSerif", 15);
+                draw "Men: " +  length(man) at: { 40#px, y + 20#px } color: #white font: font("SansSerif", 15);
+                draw "Time: "+  current_date at:{ 40#px, y + 40#px} color:#white font:font("SansSerif",15);
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 60#px} color:#white font:font("SansSerif",15);
 				/*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
