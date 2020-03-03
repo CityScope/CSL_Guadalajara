@@ -403,7 +403,7 @@ experiment Flow type:gui parallel:false {
 		layout #split;
 		display environment background:#black type:opengl draw_env:false name:"Tejido Social" ambient_light:sunlight{
 			graphics "interaction_graph" {
-				if (interaction_graph != nil and (showInteractions = true)) {
+				if (interaction_graph != nil and (showInteractions)) {
 					loop eg over: interaction_graph.edges {
 						people src <- interaction_graph source_of eg;
 						people target <- interaction_graph target_of eg;
@@ -411,7 +411,13 @@ experiment Flow type:gui parallel:false {
 						draw line(edge_geom.points) color: rgb(0, 125, 0, 75);
 					}
 				}
-
+				if (showInteractions){
+					loop person over: women{
+						loop connection over:person.social_circle{
+							draw curve(person.location, connection.location,0.5, 200, 90) color:rgb (79, 194, 210,128);
+						} 
+					}
+				}
 			}
 			species block aspect:gray_scale;
 			species women aspect:default;
