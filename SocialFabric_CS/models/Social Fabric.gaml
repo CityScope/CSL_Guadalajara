@@ -95,6 +95,9 @@ global torus:false{
 			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
 		}
 		create women number:100;
+		create men number:100{location<-any_location_in(one_of(road));}
+		ask women{do init_social_circle;}
+		ask men{do init_social_circle;}
 		write "Total of roads: "+length(road); 
 	}
 	
@@ -262,9 +265,11 @@ species people skills:[moving]{
 	map<string,float> indicators_weights; //indicator->weight
 	float safety_perception;
 	float vision_ratio;
+	list<people> social_circle;
 	init{
 		safety_perception <- 0.0;
 		vision_ratio <- 50.0#m;
+		social_circle <- [];
 	}
 	reflex update_perception{
 		float sum<-0.0;
@@ -302,6 +307,12 @@ species people skills:[moving]{
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
 			//3.Si no se conocen: W-M   Si se conocen: W-W		
 	}
+	action init_social_circle{
+		list<people> auxList <- women at_distance(vision_ratio);
+		add all:auxList to:social_circle;
+		auxList <- men at_distance(vision_ratio);
+		add all:auxList to:social_circle;
+	}
 }
 
 species women parent:people{
@@ -311,9 +322,6 @@ species women parent:people{
 	point current_objective_location;
 	
 	init{
-		/*ROUTINE
-		 *Possible activities: staying, on_the_way.
-		* */ 
 		add "police_patrols"::0.45 to:indicators_weights;
 		add "lighting_uniformity_ratio"::0.45 to:indicators_weights;
 		add "pavement_condition"::0.1 to:indicators_weights;
@@ -326,6 +334,10 @@ species women parent:people{
 		location <- activities_locations["home"];
 	}
 	reflex make_routine{
+		/*ROUTINE
+		*Possible activities: staying, on_the_way.
+		* */
+		
 		//People give indicators different values depending on the hour of the day.
 		if list(current_date)[3] >= 7 and list(current_date)[3] < 17 and current_state = "stay"{
 			//morning
@@ -366,7 +378,10 @@ species women parent:people{
 	}
 }
 
-species man parent:people{
+species men parent:people{
+	aspect default{
+		draw circle(0.65) color:#blue;
+	}
 }
 
 species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
@@ -400,11 +415,12 @@ experiment Flow type:gui parallel:false {
 			}
 			species block aspect:gray_scale;
 			species women aspect:default;
+			species men aspect:default;
 			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 50 #px, 50 #px } background: # black border: #black rounded: true{
                 float y <- 30#px;
                 draw "Women: " +  length(women) at: { 40#px, y + 5#px } color: #white font: font("SansSerif", 15);
-                draw "Men: " +  length(man) at: { 40#px, y + 20#px } color: #white font: font("SansSerif", 15);
+                draw "Men: " +  length(men) at: { 40#px, y + 20#px } color: #white font: font("SansSerif", 15);
                 draw "Time: "+  current_date at:{ 40#px, y + 40#px} color:#white font:font("SansSerif",15);
                 draw "Sunlight: "+ sunlight at:{ 40#px, y + 60#px} color:#white font:font("SansSerif",15);
 				/*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
