@@ -450,10 +450,11 @@ experiment Simulation type:gui{
 			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 0.1,0.1 } background: # black border: #black rounded: true{
                 float y <- 30#px;
-                draw "Women: " +  length(women) at: { 40#px, y + 5#px } color: #white font: font("SansSerif", 15);
-                draw "Men: " +  length(men) at: { 40#px, y + 20#px } color: #white font: font("SansSerif", 15);
-                draw "Time: "+  current_date at:{ 40#px, y + 40#px} color:#white font:font("SansSerif",15);
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 60#px} color:#white font:font("SansSerif",15);
+               	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:#black;
+                draw "Women: " +  length(women) at: { 40#px, y + 5#px } color: #white font: font("Arial", 20);
+                draw "Men: " +  length(men) at: { 40#px, y + 20#px } color: #white font: font("Arial", 20);
+                draw "Time: "+  current_date at:{ 40#px, y + 40#px} color:#white font:font("Arial",20);
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 60#px} color:#white font:font("Arial",20);
 				/*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
