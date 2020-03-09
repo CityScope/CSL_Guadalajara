@@ -32,17 +32,21 @@ global torus:false{
 	graph<people,people> interaction_graph;
 	
 	//SUNLIGHT
-	float sunlight <- 0.0 update:-0.025*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1; //Estimated function to get the sunlight [0.0 to 1.0]
+	float sunlight <- 0.0 update:-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1; //Estimated function to get the sunlight [0.0 to 1.0]
 
 	date starting_date <- date([2020,3,3,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
+	file elevation_file <- file('C:/Users/gamaa/Documents/Software Projects/CSL_Guadalajara/SocialFabric_CS/models/gis/fivecorners/new_elevation_without_no_data_values.png') ;
 	geometry shape <- envelope(roads_file);
+	
+	
 	init{
 		
 		file blocks_file <- nil;
 		file block_fronts_file <- nil;
 		file places_file <- nil;
 		file interlands_file;
+		
 		
 		string inputFileName <- "";
 		
@@ -202,7 +206,7 @@ species block{
 		int sum <- int_lightning+int_sidewalk+int_paving+(1-int_access)+int_trees;
 		valuation <- sum/5;
 	}
-	aspect gray_scale{draw shape color: rgb(sunlight*valuation*180,sunlight*valuation*180,sunlight*valuation*180,180);}
+	aspect gray_scale{draw shape color: rgb(valuation*180,valuation*180,valuation*180,180);}
 }
 
 species block_front{
@@ -396,12 +400,22 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 	}
 }
 
-experiment Flow type:gui parallel:false {
+experiment test type:gui{
+	output{
+		display dem type:opengl{
+			graphics "elevation"{
+				draw dem(elevation_file,0.1);
+			}
+		}
+	}
+}
+
+experiment Simulation type:gui{
 	
 	output{
 		
 		layout #split;
-		display environment background:#black type:opengl draw_env:false name:"Tejido Social" ambient_light:sunlight{
+		display main background:#black type:opengl draw_env:false name:"main_display" ambient_light:sunlight*255{
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions)) {
 					loop eg over: interaction_graph.edges {
@@ -414,16 +428,17 @@ experiment Flow type:gui parallel:false {
 				if (showInteractions){
 					loop person over: women{
 						loop connection over:person.social_circle{
-							draw curve(person.location, connection.location,0.5, 200, 90) color:rgb (79, 194, 210,128);
+							draw curve(person.location, connection.location,0.5, 200, 90) color:rgb (79, 194, 210,100);
 						} 
 					}
 				}
 			}
+			
 			species block aspect:gray_scale;
 			species women aspect:default;
 			species men aspect:default;
 			species police_patrol aspect:car;
-			overlay position: { 10, 10 } size: { 50 #px, 50 #px } background: # black border: #black rounded: true{
+			overlay position: { 10, 10 } size: { 0.1,0.1 } background: # black border: #black rounded: true{
                 float y <- 30#px;
                 draw "Women: " +  length(women) at: { 40#px, y + 5#px } color: #white font: font("SansSerif", 15);
                 draw "Men: " +  length(men) at: { 40#px, y + 20#px } color: #white font: font("SansSerif", 15);
