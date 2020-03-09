@@ -268,11 +268,11 @@ species people skills:[moving]{
 	map<string,float> indicators_values;  //indicator->value
 	map<string,float> indicators_weights; //indicator->weight
 	float safety_perception;
-	float vision_ratio;
+	float vision_radius;
 	list<people> social_circle;
 	init{
 		safety_perception <- 0.0;
-		vision_ratio <- 50.0#m;
+		vision_radius <- 50.0#m;
 		social_circle <- [];
 	}
 	reflex update_perception{
@@ -288,18 +288,18 @@ species people skills:[moving]{
 		
 		//C1__FORMAL SURVEILLANCE
 		//police_patrols_range
-		list<police_patrol> auxPolice <- police_patrol at_distance(vision_ratio);
+		list<police_patrol> auxPolice <- police_patrol at_distance(vision_radius);
 		put auxPolice!=[]? 1.0:0.0 at:"police_patrols" in:indicators_values;
 		
 		//C2__ARTIFICIAL LIGHTING
-		//lighting_uniformity_ratio
+		//lighting_uniformity_radius
 			//TO DO: differenciate between daytime and nighttime
-		list<road> auxLighting <- road at_distance(vision_ratio);
-		put auxLighting!=[]? auxLighting[0].float_lightning:0.0 at:"lighting_uniformity_ratio" in:indicators_values;
+		list<road> auxLighting <- road at_distance(vision_radius);
+		put auxLighting!=[]? auxLighting[0].float_lightning:0.0 at:"lighting_uniformity_radius" in:indicators_values;
 		
 		//C7__MAINTENANCE
 		//pavement_condition
-		list<road> auxPavement <- road at_distance(vision_ratio);
+		list<road> auxPavement <- road at_distance(vision_radius);
 		put auxPavement!=[]? auxPavement[0].float_paving:0.0 at:"pavement_condition" in:indicators_values;
 		
 		//C1__NATURAL SURVEILLANCE
@@ -309,12 +309,20 @@ species people skills:[moving]{
 				// W+N+N    + car   (kidnapping)
 				// relación de los agentes niños con agentes adultos por ciertas horas del día
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
-			//3.Si no se conocen: W-M   Si se conocen: W-W		
+			//3.Si no se conocen: W-M   Si se conocen: W-W
+		list<people> nearPeople <- []; //Obtain people arround
+		list<women> nearWomen <- women at_distance(vision_radius);
+		list<men> nearMen <- men at_distance(vision_radius);
+		add all:nearWomen to:nearPeople;
+		add all:nearMen to:nearPeople;
+		float wm_ratio <- length(nearMen)>0?length(nearWomen)/length(nearMen):1.0;
+		put wm_ratio at:"wm_ratio" in:indicators_values;
+		
 	}
 	action init_social_circle{
-		list<people> auxList <- women at_distance(vision_ratio);
+		list<people> auxList <- women at_distance(vision_radius);
 		add all:auxList to:social_circle;
-		auxList <- men at_distance(vision_ratio);
+		auxList <- men at_distance(vision_radius);
 		add all:auxList to:social_circle;
 	}
 }
@@ -326,15 +334,16 @@ species women parent:people{
 	point current_objective_location;
 	
 	init{
-		add "police_patrols"::0.45 to:indicators_weights;
-		add "lighting_uniformity_ratio"::0.45 to:indicators_weights;
+		add "police_patrols"::0.25 to:indicators_weights;
+		add "lighting_uniformity_radius"::0.25 to:indicators_weights;
 		add "pavement_condition"::0.1 to:indicators_weights;
+		add "wm_ratio"::0.4 to:indicators_weights;
 		add "home"::any_location_in(one_of(road)) to: activities_locations;
 		add "work"::any_location_in(one_of(road)) to: activities_locations;
 		add "leisure"::any_location_in(one_of(road)) to: activities_locations;
 		current_state <- "stay";
 		safety_perception <- 0.0;
-		vision_ratio <- 50.0#m;
+		vision_radius <- 50.0#m;
 		location <- activities_locations["home"];
 	}
 	reflex make_routine{
@@ -378,7 +387,7 @@ species women parent:people{
 	aspect default{
 		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
 		draw circle(0.65) color: safety_color;
-		if(showPerception){draw circle(vision_ratio) border:safety_color empty:true;}
+		if(showPerception){draw circle(vision_radius) border:safety_color empty:true;}
 	}
 }
 
@@ -401,6 +410,7 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 }
 
 experiment test type:gui{
+	
 	output{
 		display dem type:opengl{
 			graphics "elevation"{
