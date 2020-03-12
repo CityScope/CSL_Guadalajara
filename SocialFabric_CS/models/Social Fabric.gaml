@@ -13,7 +13,7 @@ global torus:false{
 	string case_study parameter: "Case study:" category: "Environment" <-"fivecorners" among:["centinela", "miramar", "fivecorners"];
 	int nbAgents parameter: "Number of people" category: "Environment" <-0 min:0 max: 1000;
 	//Model parameters
-	bool showInteractions parameter: "Show encounters" category:"Model" <- false;
+	bool showInteractions parameter: "Show interactions" category:"Model" <- false;
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
@@ -32,9 +32,9 @@ global torus:false{
 	graph<people,people> interaction_graph;
 	
 	//SUNLIGHT
-	float sunlight <- 0.0 update:-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1; //Estimated function to get the sunlight [0.0 to 1.0]
+	float sunlight   <- 0.0 update:float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2; //Estimated function to get the sunlight [0.0 to 1.0]
 
-	date starting_date <- date([2020,3,3,6,30,0]);
+	date starting_date <- date([2020,3,9,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
 	file elevation_file <- file('C:/Users/gamaa/Documents/Software Projects/CSL_Guadalajara/SocialFabric_CS/models/gis/fivecorners/new_elevation_without_no_data_values.png') ;
 	geometry shape <- envelope(roads_file);
@@ -88,7 +88,7 @@ global torus:false{
 		create places from: interlands_file with:[type::"interland"]{do interactWithroads;}				
 		weight_map <- road as_map(each::each.valuation);
 		road_network <- as_edge_graph(road);
-		create police_patrol number:10{location <- any_location_in(one_of(road));}
+		create police_patrol number:10;
 	
 	
 		create flux_node from: file("/gis/"+case_study+"/flux.shp") with:[id::int(read("id")),way::string(read("way"))];
@@ -264,25 +264,37 @@ species places{
 }
 
 species people skills:[moving]{
+	
+	//perception related variables
 	point target; //importar datos de csv para rutinas, relaciones, perfil.
 	map<string,float> indicators_values;  //indicator->value
 	map<string,float> indicators_weights; //indicator->weight
 	float safety_perception;
 	float vision_radius;
 	list<people> social_circle;
+	
+	//personal variables
+	string occupation;
+	int age;
+	list<string> preferences; //EXPERIMENTAL FOR NETWORK ANALYSIS: People interact and make relationships with people according to an affinity value, which is obtained from preferences. (Read Yuan et al)
+	
+	
 	init{
 		safety_perception <- 0.0;
-		vision_radius <- 50.0#m;
+		vision_radius <- 30.0#m;
 		social_circle <- [];
 	}
 	reflex update_perception{
+		if sunlight>0 and vision_radius<60#m{
+			vision_radius <- vision_radius + vision_radius*sunlight;
+		}
 		float sum<-0.0;
 		loop auxKey over:indicators_values.keys{
 			sum <- sum + indicators_values[auxKey]*indicators_weights[auxKey];
 		}
 		safety_perception <- sum;
 	}
-	reflex update_indicators{
+	reflex update_indicators_values{
 		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
 		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
 		
@@ -310,12 +322,12 @@ species people skills:[moving]{
 				// relación de los agentes niños con agentes adultos por ciertas horas del día
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
 			//3.Si no se conocen: W-M   Si se conocen: W-W
-		list<people> nearPeople <- []; //Obtain people arround
-		list<women> nearWomen <- women at_distance(vision_radius);
-		list<men> nearMen <- men at_distance(vision_radius);
+		list<people> nearPeople <- []; //People arround
+		list<women> nearWomen <- women at_distance(vision_radius); //Women arround
+		list<men> nearMen <- men at_distance(vision_radius); //Men arround
 		add all:nearWomen to:nearPeople;
 		add all:nearMen to:nearPeople;
-		float wm_ratio <- length(nearMen)>0?length(nearWomen)/length(nearMen):1.0;
+		float wm_ratio <- length(nearMen)>0?length(nearWomen)/length(nearMen):1.0; //Women/Men ratio
 		put wm_ratio at:"wm_ratio" in:indicators_values;
 		
 	}
@@ -328,22 +340,28 @@ species people skills:[moving]{
 }
 
 species women parent:people{
+	
+	//Routine related variables
 	map<string,point> activities_locations;
 	path current_route;
 	string current_state;
 	point current_objective_location;
+	
+	//Safety related variables
+	
+	
 	
 	init{
 		add "police_patrols"::0.25 to:indicators_weights;
 		add "lighting_uniformity_radius"::0.25 to:indicators_weights;
 		add "pavement_condition"::0.1 to:indicators_weights;
 		add "wm_ratio"::0.4 to:indicators_weights;
-		add "home"::any_location_in(one_of(road)) to: activities_locations;
-		add "work"::any_location_in(one_of(road)) to: activities_locations;
-		add "leisure"::any_location_in(one_of(road)) to: activities_locations;
+		age <- rnd(80);
+		occupation <- "inactive";
+		
+		do buildRoutine;
 		current_state <- "stay";
 		safety_perception <- 0.0;
-		vision_radius <- 50.0#m;
 		location <- activities_locations["home"];
 	}
 	reflex make_routine{
@@ -384,6 +402,14 @@ species women parent:people{
 			do wander;
 		}
 	}
+	action buildRoutine{
+		int nbActivities <- rnd(4)+1;
+		point home <- any_location_in(one_of(block));
+		
+		add "home"::any_location_in(one_of(block)) to: activities_locations;
+		add "work"::any_location_in(one_of(block)) to: activities_locations;
+		add "leisure"::any_location_in(one_of(road)) to: activities_locations;
+	}
 	aspect default{
 		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
 		draw circle(0.65) color: safety_color;
@@ -398,11 +424,26 @@ species men parent:people{
 }
 
 species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
-	list<point> destinations;
+	point target;
 	image_file car;
-	init{}
-	reflex moving{
-		do wander;
+	path route;
+	init{
+		location <- any_location_in(one_of(road));
+		target <- any_location_in(one_of(road));
+		do rebuildPath;
+	}
+	reflex move{
+		if location = target{
+			target <- any_location_in(one_of(road));
+			do rebuildPath;
+		}
+		do follow path:route move_weights:route.edges as_map(each::each.perimeter);
+	}
+	action rebuildPath{
+		route <- path_between(road_network, location, target);
+		loop while: route = nil{
+			route <- path_between(road_network, location, target);	
+		}
 	}
 	aspect car{
 		draw rectangle(3,2) color:#red;
@@ -450,12 +491,12 @@ experiment Simulation type:gui{
 			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 0.1,0.1 } background: # black border: #black rounded: true{
                 float y <- 30#px;
-               	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:#black;
-                draw "Women: " +  length(women) at: { 40#px, y + 5#px } color: #white font: font("Arial", 20);
-                draw "Men: " +  length(men) at: { 40#px, y + 20#px } color: #white font: font("Arial", 20);
-                draw "Time: "+  current_date at:{ 40#px, y + 40#px} color:#white font:font("Arial",20);
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 60#px} color:#white font:font("Arial",20);
-				/*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
+               	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:#black font: font("SansSerif", 20, #plain);
+                draw "Women: " +  length(women) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #plain);
+                draw "Men: " +  length(men) at: { 40#px, y + 30#px } color: #white font: font("SansSerif", 20, #plain);
+                draw "Time: "+  current_date at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 70#px} color:#white font:font("SansSerif",20, #plain);
+               /*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
 				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
