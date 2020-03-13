@@ -350,19 +350,28 @@ species women parent:people{
 	//Safety related variables
 	
 	
-	
 	init{
-		add "police_patrols"::0.25 to:indicators_weights;
-		add "lighting_uniformity_radius"::0.25 to:indicators_weights;
-		add "pavement_condition"::0.1 to:indicators_weights;
-		add "wm_ratio"::0.4 to:indicators_weights;
-		age <- rnd(80);
-		occupation <- "inactive";
+		indicators_weights <- [//How important is each indicator for this agent. All of them sum 1.
+			"police_patrols"::0.25,
+			"lighting_uniformity_radius"::0.25,
+			"pavement_condition"::0.1,
+			"wm_ratio"::0.4
+		];
 		
+		age <- rnd(80);
+				
 		do buildRoutine;
 		current_state <- "stay";
 		safety_perception <- 0.0;
 		location <- activities_locations["home"];
+	}
+	action buildRoutine{
+		occupation <- one_of("inactive","student","worker");
+		int nbActivities <- rnd(1,5);
+		point home <- any_location_in(one_of(block));
+		add "home"::any_location_in(one_of(block)) to: activities_locations;
+		add "work"::any_location_in(one_of(block)) to: activities_locations;
+		add "leisure"::any_location_in(one_of(road)) to: activities_locations;
 	}
 	reflex make_routine{
 		/*ROUTINE
@@ -401,14 +410,6 @@ species women parent:people{
 		else if current_state = "stay"{
 			do wander;
 		}
-	}
-	action buildRoutine{
-		int nbActivities <- rnd(4)+1;
-		point home <- any_location_in(one_of(block));
-		
-		add "home"::any_location_in(one_of(block)) to: activities_locations;
-		add "work"::any_location_in(one_of(block)) to: activities_locations;
-		add "leisure"::any_location_in(one_of(road)) to: activities_locations;
 	}
 	aspect default{
 		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
@@ -451,7 +452,6 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 }
 
 experiment test type:gui{
-	
 	output{
 		display dem type:opengl{
 			graphics "elevation"{
