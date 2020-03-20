@@ -36,7 +36,7 @@ global torus:false{
 
 	date starting_date <- date([2020,3,9,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
-	file elevation_file <- file('C:/Users/gamaa/Documents/Software Projects/CSL_Guadalajara/SocialFabric_CS/models/gis/fivecorners/new_elevation_without_no_data_values.png') ;
+	file elevation_file <- file('./gis/fivecorners/new_elevation_without_no_data_values.png') ;
 	geometry shape <- envelope(roads_file);
 	
 	
