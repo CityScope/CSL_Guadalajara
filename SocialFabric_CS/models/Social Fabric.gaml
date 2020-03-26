@@ -17,6 +17,9 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
+	float buildings_z parameter: "buildings_z" category: "Visualization" <- 70.0 min:50.0 max:100.0;
+	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0 min:-500.0 max:500.0;
+	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0 min:-500.0 max:500.0;
 	
 	graph road_network;
 	map<road, float> weight_map;
@@ -37,7 +40,8 @@ global torus:false{
 	date starting_date <- date([2020,3,9,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
 	file elevation_file <- file('./gis/fivecorners/new_elevation_without_no_data_values.png') ;
-	geometry shape <- envelope(roads_file);
+	file stl_file <- file('/gis/'+case_study+'3D_buildings_STL.stl');
+	//geometry shape <- envelope(elevation_file);
 	
 	
 	init{
@@ -103,6 +107,8 @@ global torus:false{
 		ask women{do init_social_circle;}
 		ask men{do init_social_circle;}
 		write "Total of roads: "+length(road); 
+		create terrain;
+		create building;
 	}
 	
 	reflex main{
@@ -260,6 +266,21 @@ species places{
 				valuation <- 1.0;
 			}
 		}
+	}
+}
+
+species terrain {
+	geometry shape <- obj_file("/gis/"+case_study+"/terrain_obj.obj") as geometry;
+	aspect default {
+		draw shape color:rgb (128, 128, 128,255) border:rgb (128, 128, 128,255);
+	}
+}
+
+species building {
+	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
+	
+	aspect default {
+		draw shape border: #black at:{buildings_x,buildings_y,buildings_z};
 	}
 }
 
@@ -453,10 +474,14 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 
 experiment test type:gui{
 	output{
-		display dem type:opengl{
+		/*display dem type:opengl{
 			graphics "elevation"{
 				draw dem(elevation_file,0.1);
 			}
+		}*/
+		display obj type:opengl{
+			species terrain aspect:default;	
+			species building aspect:default;
 		}
 	}
 }
