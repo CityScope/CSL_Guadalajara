@@ -41,7 +41,7 @@ global torus:false{
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
 	file elevation_file <- file('./gis/fivecorners/new_elevation_without_no_data_values.png') ;
 	file stl_file <- file('/gis/'+case_study+'3D_buildings_STL.stl');
-	//geometry shape <- envelope(elevation_file);
+	geometry shape <- envelope(roads_file);
 	
 	
 	init{
@@ -431,6 +431,7 @@ species women parent:people{
 		else if current_state = "stay"{
 			do wander;
 		}
+		location <- location + {0,0,buildings_z};
 	}
 	aspect default{
 		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
@@ -509,7 +510,8 @@ experiment Simulation type:gui{
 					}
 				}
 			}
-			
+			species terrain aspect:default;	
+			species building aspect:default;
 			species block aspect:gray_scale;
 			species women aspect:default;
 			species men aspect:default;
