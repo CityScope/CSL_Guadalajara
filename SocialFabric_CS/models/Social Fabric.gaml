@@ -18,8 +18,8 @@ global torus:false{
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
 	float buildings_z parameter: "buildings_z" category: "Visualization" <- 70.0 min:50.0 max:100.0;
-	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0 min:-500.0 max:500.0;
-	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0 min:-500.0 max:500.0;
+	float buildings_y parameter: "buildings_y" category: "Visualization" <- -150.0 min:-500.0 max:500.0;
+	float buildings_x parameter: "buildings_x" category: "Visualization" <- 120.0 min:-500.0 max:500.0;
 	
 	graph road_network;
 	map<road, float> weight_map;
@@ -280,7 +280,7 @@ species building {
 	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	
 	aspect default {
-		draw shape border: #black at:{buildings_x,buildings_y,buildings_z};
+		draw shape at:{buildings_x,buildings_y,buildings_z};
 	}
 }
 
