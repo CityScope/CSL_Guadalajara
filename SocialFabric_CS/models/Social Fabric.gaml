@@ -284,7 +284,7 @@ species building {
 	}
 }
 
-species people skills:[moving]{
+species people skills:[moving,moving3D]{
 	
 	//perception related variables
 	point target; //importar datos de csv para rutinas, relaciones, perfil.
@@ -431,10 +431,11 @@ species women parent:people{
 		else if current_state = "stay"{
 			do wander;
 		}
-		location <- location + {0,0,buildings_z};
+		location <- {location.x,location.y};
 	}
 	aspect default{
-		rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
+		//rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
+		rgb safety_color <- #yellow;
 		draw circle(0.65) color: safety_color;
 		if(showPerception){draw circle(vision_radius) border:safety_color empty:true;}
 	}
@@ -461,6 +462,7 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 			do rebuildPath;
 		}
 		do follow path:route move_weights:route.edges as_map(each::each.perimeter);
+		location <- {location.x,location.y};
 	}
 	action rebuildPath{
 		route <- path_between(road_network, location, target);
@@ -492,7 +494,7 @@ experiment Simulation type:gui{
 	output{
 		
 		layout #split;
-		display main background:#black type:opengl draw_env:false name:"main_display" ambient_light:sunlight*255{
+		display main background:#black type:opengl draw_env:true name:"main_display" ambient_light:sunlight*255{
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions)) {
 					loop eg over: interaction_graph.edges {
@@ -510,15 +512,15 @@ experiment Simulation type:gui{
 					}
 				}
 			}
-			species terrain aspect:default;	
-			species building aspect:default;
+			species terrain aspect:default refresh:false;	
+			species building aspect:default refresh:false;
 			species block aspect:gray_scale;
 			species women aspect:default;
 			species men aspect:default;
 			species police_patrol aspect:car;
-			overlay position: { 10, 10 } size: { 0.1,0.1 } background: # black border: #black rounded: true{
+			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black transparency:0.5 border: #black rounded: true{
                 float y <- 30#px;
-               	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:#black font: font("SansSerif", 20, #plain);
+               	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
                 draw "Women: " +  length(women) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #plain);
                 draw "Men: " +  length(men) at: { 40#px, y + 30#px } color: #white font: font("SansSerif", 20, #plain);
                 draw "Time: "+  current_date at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
