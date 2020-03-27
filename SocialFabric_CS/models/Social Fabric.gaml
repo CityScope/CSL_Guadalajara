@@ -47,6 +47,7 @@ global torus:false{
 	init{
 		
 		file blocks_file <- nil;
+		file buildings_file <- nil;
 		file block_fronts_file <- nil;
 		file places_file <- nil;
 		file interlands_file;
@@ -56,6 +57,9 @@ global torus:false{
 		
 		inputFileName <- "/gis/"+case_study+"/blocks.shp";
 		if file_exists(inputFileName){ blocks_file <- file(inputFileName);}
+		
+		inputFileName <- "/gis/"+case_study+"/n_buildings.shp";
+		if file_exists(inputFileName){ buildings_file <- file(inputFileName);}
 		
 		inputFileName <- "/gis/"+case_study+"/block_fronts.shp";
 		if file_exists(inputFileName){ block_fronts_file <- file(inputFileName);}
