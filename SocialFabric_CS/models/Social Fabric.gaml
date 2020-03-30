@@ -18,12 +18,11 @@ global torus:false{
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
 	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
-	float buildings_y parameter: "buildings_y" category: "Visualization" <- 620.0;
-	float buildings_x parameter: "buildings_x" category: "Visualization" <- 610.0;
+	float buildings_y parameter: "buildings_y" category: "Visualization" <- 1080.0;
+	float buildings_x parameter: "buildings_x" category: "Visualization" <- 790.0;
 	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
-	float terrain_y parameter: "terrain_y" category: "Visualization" <- 620.0 min:-500.0 max:1000.0;
-	float terrain_x parameter: "terrain_x" category: "Visualization" <- 610.0 min:-500.0 max:1000.0;
-	
+	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
+	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
 	graph road_network;
 	map<road, float> weight_map;
 	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
@@ -44,6 +43,7 @@ global torus:false{
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
 	file elevation_file <- file('./gis/fivecorners/terrain_obj.obj') ;
 	file buildings_3d_file <- shape_file('/gis/'+case_study+'/new_buildings_3d.shp');
+	file terrain_texture <- file('/gis/fivecorners/texture.jpg') ;
 	geometry shape <- envelope(roads_file);
 	
 	
@@ -110,9 +110,7 @@ global torus:false{
 			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
 		}
 		create women number:100;
-		create men number:100{location<-any_location_in(one_of(road));}
 		ask women{do init_social_circle;}
-		ask men{do init_social_circle;}
 		write "Total of roads: "+length(road); 
 		create terrain;
 		create building;
@@ -279,7 +277,7 @@ species places{
 species terrain {
 	geometry shape <- obj_file("/gis/"+case_study+"/terrain_obj.obj") as geometry;
 	aspect default {
-		draw shape at:{terrain_x,terrain_y,terrain_z} color:rgb (128, 128, 128,255) border:rgb (128, 128, 128,255);
+		draw shape at:{terrain_x,terrain_y,terrain_z} color:rgb (128, 128, 128,255) border:rgb (128, 128, 128,255) texture:terrain_texture;
 	}
 }
 
@@ -287,7 +285,7 @@ species building {
 	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	
 	aspect default {
-		draw shape at:{buildings_x,buildings_y,buildings_z} color:#gray;
+		draw shape at:{buildings_x,buildings_y,buildings_z};
 	}
 }
 
@@ -520,11 +518,10 @@ experiment Simulation type:gui{
 					}
 				}
 			}
-			//species terrain aspect:default;	
-			species building aspect:default;
-			species block aspect:gray_scale;
+			species terrain aspect:default refresh:false;	
+			species building aspect:default refresh:false;
+			species road aspect:default refresh:false;
 			species women aspect:default;
-			species men aspect:default;
 			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
                 float y <- 30#px;
