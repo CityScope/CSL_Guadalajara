@@ -17,9 +17,12 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
-	float buildings_z parameter: "buildings_z" category: "Visualization" <- 70.0 min:50.0 max:100.0;
-	float buildings_y parameter: "buildings_y" category: "Visualization" <- -150.0 min:-500.0 max:500.0;
-	float buildings_x parameter: "buildings_x" category: "Visualization" <- 120.0 min:-500.0 max:500.0;
+	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
+	float buildings_y parameter: "buildings_y" category: "Visualization" <- 620.0;
+	float buildings_x parameter: "buildings_x" category: "Visualization" <- 610.0;
+	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
+	float terrain_y parameter: "terrain_y" category: "Visualization" <- 620.0 min:-500.0 max:1000.0;
+	float terrain_x parameter: "terrain_x" category: "Visualization" <- 610.0 min:-500.0 max:1000.0;
 	
 	graph road_network;
 	map<road, float> weight_map;
@@ -39,15 +42,15 @@ global torus:false{
 
 	date starting_date <- date([2020,3,9,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
-	file elevation_file <- file('./gis/fivecorners/new_elevation_without_no_data_values.png') ;
-	file stl_file <- file('/gis/'+case_study+'3D_buildings_STL.stl');
+	file elevation_file <- file('./gis/fivecorners/terrain_obj.obj') ;
+	file buildings_3d_file <- shape_file('/gis/'+case_study+'/new_buildings_3d.shp');
 	geometry shape <- envelope(roads_file);
 	
 	
 	init{
 		
 		file blocks_file <- nil;
-		file buildings_file <- nil;
+		file terrain_file <- nil;
 		file block_fronts_file <- nil;
 		file places_file <- nil;
 		file interlands_file;
@@ -58,8 +61,8 @@ global torus:false{
 		inputFileName <- "/gis/"+case_study+"/blocks.shp";
 		if file_exists(inputFileName){ blocks_file <- file(inputFileName);}
 		
-		inputFileName <- "/gis/"+case_study+"/n_buildings.shp";
-		if file_exists(inputFileName){ buildings_file <- file(inputFileName);}
+		inputFileName <- "/gis/"+case_study+"/new_terrain_3d.shp";
+		if file_exists(inputFileName){ terrain_file <- shape_file(inputFileName);}
 		
 		inputFileName <- "/gis/"+case_study+"/block_fronts.shp";
 		if file_exists(inputFileName){ block_fronts_file <- file(inputFileName);}
@@ -276,7 +279,7 @@ species places{
 species terrain {
 	geometry shape <- obj_file("/gis/"+case_study+"/terrain_obj.obj") as geometry;
 	aspect default {
-		draw shape color:rgb (128, 128, 128,255) border:rgb (128, 128, 128,255);
+		draw shape at:{terrain_x,terrain_y,terrain_z} color:rgb (128, 128, 128,255) border:rgb (128, 128, 128,255);
 	}
 }
 
@@ -284,7 +287,7 @@ species building {
 	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	
 	aspect default {
-		draw shape at:{buildings_x,buildings_y,buildings_z};
+		draw shape at:{buildings_x,buildings_y,buildings_z} color:#gray;
 	}
 }
 
@@ -426,7 +429,7 @@ species women parent:people{
 		
 	}
 	reflex execute_routine{
-		if location = current_objective_location{
+		if location = {current_objective_location.x,current_objective_location.y}{
 			current_state <- "stay";
 		}
 		if current_state = "on_the_way"{
@@ -440,7 +443,7 @@ species women parent:people{
 	aspect default{
 		//rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
 		rgb safety_color <- #yellow;
-		draw circle(0.65) color: safety_color;
+		draw sphere(1.0) color: safety_color;
 		if(showPerception){draw circle(vision_radius) border:safety_color empty:true;}
 	}
 }
@@ -487,7 +490,8 @@ experiment test type:gui{
 			}
 		}*/
 		display obj type:opengl{
-			species terrain aspect:default;	
+			species block aspect:gray_scale;
+			//species terrain aspect:default;	
 			species building aspect:default;
 		}
 	}
@@ -498,7 +502,7 @@ experiment Simulation type:gui{
 	output{
 		
 		layout #split;
-		display main background:#black type:opengl draw_env:true name:"main_display" ambient_light:sunlight*255{
+		display main background:#black type:opengl draw_env:false{
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions)) {
 					loop eg over: interaction_graph.edges {
@@ -516,13 +520,13 @@ experiment Simulation type:gui{
 					}
 				}
 			}
-			species terrain aspect:default refresh:false;	
-			species building aspect:default refresh:false;
+			//species terrain aspect:default;	
+			species building aspect:default;
 			species block aspect:gray_scale;
 			species women aspect:default;
 			species men aspect:default;
 			species police_patrol aspect:car;
-			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black transparency:0.5 border: #black rounded: true{
+			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
                 float y <- 30#px;
                	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
                 draw "Women: " +  length(women) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #plain);
