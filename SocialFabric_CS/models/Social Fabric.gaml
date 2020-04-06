@@ -1,6 +1,6 @@
 /**
  *  Social Fabric Model 
- *  Author: Gamaliel Palomo and Arnaud Grignard
+ *  Author: Gamaliel Palomo, Leticia Izquierdo and Arnaud Grignard
  *  Description: Model for Social Fabric. This approach follows the idea that social interactions depend on the physical layer of an urban space. 
  * 				This means that if the infrastructure conditions (lightning, paving, etc) are good for an agent's perception, this will prefer to
  * 				walk through this space and it will feel confortable, and social interactions emerge as a result.
@@ -17,9 +17,9 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
-	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
-	float buildings_y parameter: "buildings_y" category: "Visualization" <- 1080.0;
-	float buildings_x parameter: "buildings_x" category: "Visualization" <- 790.0;
+	float buildings_z parameter: "buildings_z" category: "Visualization" <- 145.0;
+	float buildings_y parameter: "buildings_y" category: "Visualization" <- 870.0;
+	float buildings_x parameter: "buildings_x" category: "Visualization" <- 1897.0;
 	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
 	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
 	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
@@ -37,18 +37,18 @@ global torus:false{
 	graph<people,people> interaction_graph;
 	
 	//SUNLIGHT
-	float sunlight   <- 0.0 update:float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2; //Estimated function to get the sunlight [0.0 to 1.0]
+	float sunlight   <- 0.0 update:max([float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2,0.0]); //Estimated function to get the sunlight [0.0 to 1.0]
 
 	date starting_date <- date([2020,3,9,6,30,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
-	file elevation_file <- file('./gis/fivecorners/terrain_obj.obj') ;
-	file buildings_3d_file <- shape_file('/gis/'+case_study+'/new_buildings_3d.shp');
 	file terrain_texture <- file('/gis/fivecorners/texture.jpg') ;
+	file grid_data <- file("/gis/"+case_study+"/output_srtm.asc");
 	geometry shape <- envelope(roads_file);
 	
 	
 	init{
 		
+		step <- 30#s;
 		file blocks_file <- nil;
 		file terrain_file <- nil;
 		file block_fronts_file <- nil;
@@ -61,18 +61,11 @@ global torus:false{
 		inputFileName <- "/gis/"+case_study+"/blocks.shp";
 		if file_exists(inputFileName){ blocks_file <- file(inputFileName);}
 		
-		inputFileName <- "/gis/"+case_study+"/new_terrain_3d.shp";
-		if file_exists(inputFileName){ terrain_file <- shape_file(inputFileName);}
-		
 		inputFileName <- "/gis/"+case_study+"/block_fronts.shp";
 		if file_exists(inputFileName){ block_fronts_file <- file(inputFileName);}
 		
 		inputFileName <- "/gis/"+case_study+"/places.shp";
-		if file_exists(inputFileName){ places_file <- file(inputFileName);}
-		
-		inputFileName <- "/gis/"+case_study+"/interlands.shp";
-		if file_exists(inputFileName){ interlands_file <- file(inputFileName);}
-		
+		if file_exists(inputFileName){ places_file <- file(inputFileName);}		
 		
 		
 		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
@@ -100,19 +93,11 @@ global torus:false{
 		weight_map <- road as_map(each::each.valuation);
 		road_network <- as_edge_graph(road);
 		create police_patrol number:10;
-	
-	
-		create flux_node from: file("/gis/"+case_study+"/flux.shp") with:[id::int(read("id")),way::string(read("way"))];
-		if length(flux_node where(each.way="input"))=0{
-			create flux_node with:[id::-1,way::"input",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
-		}
-		if length(flux_node where(each.way="output"))=0{
-			create flux_node with:[id::0,way::"output",location::one_of(road_network.vertices)]{fluxid<-fluxid+1;}
-		}
+
 		create women number:100;
 		ask women{do init_social_circle;}
 		write "Total of roads: "+length(road); 
-		create terrain;
+		//create terrain;
 		create building;
 	}
 	
@@ -193,7 +178,7 @@ species road{
 	}
 	//aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
 	aspect default{draw shape color: rgb(255*valuation,50,50,100);}
-	aspect gray{draw shape color: rgb (174, 174, 174,200);}
+	aspect white{draw shape color: #white;}
 }
 
 species block{
@@ -274,18 +259,12 @@ species places{
 	}
 }
 
-species terrain {
-	geometry shape <- obj_file("/gis/"+case_study+"/terrain_obj.obj") as geometry;
-	aspect default {
-		draw shape at:{terrain_x,terrain_y,terrain_z} color:rgb (128, 128, 128,255) border:rgb (128, 128, 128,255) texture:terrain_texture;
-	}
-}
-
 species building {
 	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	
 	aspect default {
-		draw shape at:{buildings_x,buildings_y,buildings_z};
+		draw shape at:{buildings_x,buildings_y,buildings_z} color:#yellow;
+		//draw shape color:rgb(0,128,192,255);
 	}
 }
 
@@ -436,7 +415,13 @@ species women parent:people{
 		else if current_state = "stay"{
 			do wander;
 		}
-		location <- {location.x,location.y};
+		
+		float loc_x <- location.x;
+		float loc_y <- location.y;
+		cell tmp_cell <- cell({loc_x,loc_y});
+		//agent tmp_cell <- cell grid_at {int(loc_x/length(grid[0])),int(loc_y/length(grid))};
+		float loc_z <- tmp_cell.grid_value;
+		location <- {loc_x,loc_y,loc_z};
 	}
 	aspect default{
 		//rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
@@ -479,18 +464,25 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 		draw rectangle(3,2) color:#red;
 	}
 }
+grid cell file:grid_data{
+	rgb color;
+	init{
+		grid_value <- grid_value-1480;
+		color <- rgb(255-grid_value,255-grid_value,255-grid_value);
+	}
+}
 
 experiment test type:gui{
 	output{
 		/*display dem type:opengl{
 			graphics "elevation"{
-				draw dem(elevation_file,0.1);
+				draw dem(dem_file,terrain_texture,0.1);
 			}
 		}*/
-		display obj type:opengl{
-			species block aspect:gray_scale;
-			//species terrain aspect:default;	
-			species building aspect:default;
+		display gridWithElevationTriangulated type: opengl {
+			grid cell elevation: grid_value triangulation: true refresh:false;
+			species road aspect:white refresh:false;
+			species women aspect:default;
 		}
 	}
 }
@@ -500,7 +492,7 @@ experiment Simulation type:gui{
 	output{
 		
 		layout #split;
-		display main background:#black type:opengl draw_env:false{
+		display main background:#black type:opengl{
 			graphics "interaction_graph" {
 				if (interaction_graph != nil and (showInteractions)) {
 					loop eg over: interaction_graph.edges {
@@ -518,9 +510,9 @@ experiment Simulation type:gui{
 					}
 				}
 			}
-			species terrain aspect:default refresh:false;	
+			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;	
 			species building aspect:default refresh:false;
-			species road aspect:default refresh:false;
+			species road aspect:white refresh:false;
 			species women aspect:default;
 			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
@@ -537,25 +529,6 @@ experiment Simulation type:gui{
 				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);*/
             }
 		}
-		/*
-		display network background:#black type:opengl name:"Network analysis" draw_env:false{
-			graphics "nodes"{
-            	point reference <- location;
-            	map<flux_node,flux_node_> location_translation;
-            	int diameter <- 300;
-            	int n <- length(flux_node);
-            	float alpha <- 360/n;
-            	loop it from: 0 to:n-1{
-            		point point_location <- (location+{diameter*cos(alpha*it),diameter*sin(alpha*it)});
-            		ask flux_node_[it]{location <- point_location;}
-            		add flux_node[it]::flux_node_[it] to:location_translation;
-            	}
-            	loop key over:paths.keys{
-            		geometry edge <- curve(location_translation[key[0]].location,location_translation[key[1]].location, 0.5, 200, 90);
-            		draw edge color:#green;
-	            }
-			}
-			species flux_node_ aspect:default refresh:false;
-		}*/
+		
 	}
 }
