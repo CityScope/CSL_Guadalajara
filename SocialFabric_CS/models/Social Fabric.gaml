@@ -511,7 +511,7 @@ experiment Simulation type:gui{
 				}
 			}
 			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;	
-			species building aspect:default refresh:false;
+			species building aspect:default;
 			species road aspect:white refresh:false;
 			species women aspect:default;
 			species police_patrol aspect:car;
