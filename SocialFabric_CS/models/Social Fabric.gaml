@@ -36,7 +36,7 @@ global torus:false{
 	//SUNLIGHT
 	float sunlight   <- 0.0 update:max([float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2,0.0]); //Estimated function to get the sunlight [0.0 to 1.0]
 
-	date starting_date <- date([2020,3,9,6,30,0]);
+	date starting_date <- date([2020,4,23,6,0,0]);
 	file roads_file <- file("/gis/"+case_study+"/roads.shp");
 	file buildings_file <- file("/gis/"+case_study+"/Buildings_DepthHeight.shp");
 	file terrain_texture <- file('/gis/fivecorners/texture.jpg') ;
@@ -89,8 +89,8 @@ global torus:false{
 		weight_map <- road as_map(each::each.valuation);
 		road_network <- as_edge_graph(road);
 		create police_patrol number:10;
-		create people number:50{age<-10;}
 		create building;
+		create people number:50{age<-10;}
 	}
 	user_command "police_patrol"{
 		point newPoint <- #user_location;
@@ -231,10 +231,10 @@ species people skills:[moving]{
 	list<people> social_circle <- [];		//List of other people this aget relates with
 
 	//Routine related variables
-	map<string,point> locations;						//A map containing the locations and their coordinates
+	map<string,point> locations;				//A map containing the locations and their coordinates
 	point current_objective;					//The current objective in the routine
-	path current_route<-[];								//The current route to follow, this varies according to the current objective
-	string current_state <- "stay";						//Wheter this agent is onTheWay or stay
+	path current_route;							//The current route to follow, this varies according to the current objective
+	string current_state <- "stay";				//Wheter this agent is onTheWay or stay
 	
 	//personal variables
 	string occupation;						//The role of this agent
@@ -256,6 +256,7 @@ species people skills:[moving]{
 		location <- locations["home"];											//Initial location
 		list<people> auxList <- people at_distance(vision_radius);
 		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
+		do build_routine;
 	}
 	reflex update_perception when:(mod(cycle,10)=0){
 		if sunlight>0 and vision_radius<60#m{
@@ -298,46 +299,43 @@ species people skills:[moving]{
 			//3.Si no se conocen: W-M   Si se conocen: W-W
 		list<people> nearPeople <- []; //People arround
 	}
-	reflex build_routine{
+	action build_routine{
 		if current_state="stay"{
 			if age<=5{}
 			else if age>5 and age<=14{
-				if current_date[3]>9{
-					current_objective <- locations["school"];
-					current_route <- path_between(road_network,location,current_objective);
-					current_state <- "onTheWay";
-				}
-				if current_date[3]>14{
-					current_objective <- locations["leisure"];
-					current_route <- path_between(road_network,location,current_objective);
-					current_state <- "onTheWay";
-				}
-				if current_date[3]>19{
-					current_objective <- locations["home"];
-					current_route <- path_between(road_network,location,current_objective);
-					current_state <- "onTheWay";
-				}
+				if current_date.hour>19{current_objective <- locations["school"]; do build_path;}
+				if current_date.hour>14{current_objective <- locations["leisure"]; do build_path;}
+				if current_date.hour>9{current_objective <- locations["home"]; do build_path;}
 			}
 			else if age>14 and age<=19{
-				
+				if current_date.hour>20{current_objective <- locations["school"]; do build_path;}
+				if current_date.hour>13{current_objective <- locations["work"]; do build_path;}
+				if current_date.hour>7{current_objective <- locations["home"]; do build_path;}
 			}
-			else if age>19 and age<=34{}
-			else if age>34 and age<=44{}
-			else if age>44 and age<=54{}
-			else if age>54 and age<=64{}
+			else if age>19 and age<=34{
+				if current_date.hour>19{current_objective <- locations["work"]; do build_path;}
+				if current_date.hour>6{current_objective <- locations["home"]; do build_path;}
+			}
+			else if age>34 and age<=54{
+				if current_date.hour>19{current_objective <- locations["work"]; do build_path;}
+				if current_date.hour>6{current_objective <- locations["home"]; do build_path;}
+			}
+			else if age>54 and age<=64{
+				if current_date.hour>13{current_objective <- locations["work"]; do build_path;}
+				if current_date.hour>8{current_objective <- locations["home"]; do build_path;}
+			}
 			else if age>64{}
 		}
-		
+	}
+	action build_path{
+		current_route <- path_between(road_network,location,current_objective);
+		current_state <- "onTheWay";
 	}
 	reflex execute_routine{
-		if location = {current_objective.x,current_objective.y}{
-			current_state <- "stay";
-		}
-		if current_state = "onTheWay"{
+		if current_state = "stay"{do wander;}
+		else{
+			if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
 			do follow path:current_route move_weights:current_route.edges as_map(each::each.perimeter);
-		}
-		else if current_state = "stay"{
-			do wander;
 		}
 	}
 	
@@ -412,7 +410,7 @@ experiment plain type:gui{
 			//grid cell elevation: grid_value triangulation: true refresh:false;
 			species road aspect:white refresh:false;
 			species crime aspect:default;
-			species building aspect:default refresh:false;
+			//species building aspect:default refresh:false;
 			species people aspect:plain;
 		}
 	}
