@@ -28,7 +28,7 @@ global torus:false{
 	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
 	
 	//people
-	int nbpeoples <- 0;
+	int nb_people <- 0;
 	int flux_node_size <- 20;
 	int fluxid <- 1;
 	graph<people,people> interaction_graph;
@@ -242,8 +242,8 @@ species people skills:[moving]{
 	list<string> preferences; 				//EXPERIMENTAL FOR NETWORK ANALYSIS: People interact and make relationships with people according to an affinity value, which is obtained from preferences. (Read Yuan et al)
 	
 	init{
-		indicators_weights <- [		
-			//How important is each indicator for this agent. All of them sum 1.
+		indicators_weights <- [													//How important is each indicator for this agent. All of them sum 1.
+			
 			"police_patrols"::0.25,
 			"lighting_uniformity_radius"::0.25,
 			"pavement_condition"::0.1,
@@ -258,7 +258,7 @@ species people skills:[moving]{
 		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
 		do build_routine;
 	}
-	reflex update_perception when:(mod(cycle,10)=0){
+	action update_perception {
 		if sunlight>0 and vision_radius<60#m{
 			vision_radius <- vision_radius + vision_radius*sunlight;
 		}
@@ -268,7 +268,7 @@ species people skills:[moving]{
 		}
 		safety_perception <- sum;
 	}
-	reflex update_indicators_values when:(mod(cycle, 10)=0){
+	action update_indicators_values {
 		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
 		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
 		//Considerar la introducción de crimenes a lo largo del día considerando como entrada datos georreferenciados. Además estos tienen que clasificarse porque 
