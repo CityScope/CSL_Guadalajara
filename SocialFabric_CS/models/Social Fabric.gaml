@@ -60,9 +60,8 @@ global torus:false{
 		inputFileName <- "/gis/"+case_study+"/block_fronts.shp";
 		if file_exists(inputFileName){ block_fronts_file <- file(inputFileName);}
 		
-		inputFileName <- "/gis/"+case_study+"/crime.shp";
-		if file_exists(inputFileName){ crime_file <- file(inputFileName);}		
-		
+		//inputFileName <- "/gis/"+case_study+"/crime.shp";
+		//if file_exists(inputFileName){ crime_file <- file(inputFileName);}		
 		
 		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
 			if str_lightning = "Todas las vialidades"{ int_lightning <- 2; }
@@ -90,11 +89,8 @@ global torus:false{
 		road_network <- as_edge_graph(road);
 		create police_patrol number:10;
 		create building;
+		write "here";
 		create people number:50{age<-10;}
-	}
-	user_command "police_patrol"{
-		point newPoint <- #user_location;
-		create police_patrol with:[location::newPoint];
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -256,7 +252,7 @@ species people skills:[moving]{
 		location <- locations["home"];											//Initial location
 		list<people> auxList <- people at_distance(vision_radius);
 		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
-		do build_routine;
+		//do build_routine;
 	}
 	action update_perception {
 		if sunlight>0 and vision_radius<60#m{
@@ -299,33 +295,31 @@ species people skills:[moving]{
 			//3.Si no se conocen: W-M   Si se conocen: W-W
 		list<people> nearPeople <- []; //People arround
 	}
-	action build_routine{
-		if current_state="stay"{
-			if age<=5{}
-			else if age>5 and age<=14{
-				if current_date.hour>19{current_objective <- locations["school"]; do build_path;}
-				if current_date.hour>14{current_objective <- locations["leisure"]; do build_path;}
-				if current_date.hour>9{current_objective <- locations["home"]; do build_path;}
-			}
-			else if age>14 and age<=19{
-				if current_date.hour>20{current_objective <- locations["school"]; do build_path;}
-				if current_date.hour>13{current_objective <- locations["work"]; do build_path;}
-				if current_date.hour>7{current_objective <- locations["home"]; do build_path;}
-			}
-			else if age>19 and age<=34{
-				if current_date.hour>19{current_objective <- locations["work"]; do build_path;}
-				if current_date.hour>6{current_objective <- locations["home"]; do build_path;}
-			}
-			else if age>34 and age<=54{
-				if current_date.hour>19{current_objective <- locations["work"]; do build_path;}
-				if current_date.hour>6{current_objective <- locations["home"]; do build_path;}
-			}
-			else if age>54 and age<=64{
-				if current_date.hour>13{current_objective <- locations["work"]; do build_path;}
-				if current_date.hour>8{current_objective <- locations["home"]; do build_path;}
-			}
-			else if age>64{}
+	reflex build_routine when:current_state="stay"{
+		if age<=5{}
+		else if age>5 and age<=14{
+			if current_date.hour>19{current_objective <- locations["home"]; do build_path;}
+			if current_date.hour>14{current_objective <- locations["leisure"]; do build_path;}
+			if current_date.hour>9{current_objective <- locations["school"]; do build_path;}
 		}
+		else if age>14 and age<=19{
+			if current_date.hour>20{current_objective <- locations["home"]; do build_path;}
+			if current_date.hour>13{current_objective <- locations["work"]; do build_path;}
+			if current_date.hour>7{current_objective <- locations["school"]; do build_path;}
+		}
+		else if age>19 and age<=34{
+			if current_date.hour>19{current_objective <- locations["home"]; do build_path;}
+			if current_date.hour>6{current_objective <- locations["work"]; do build_path;}
+		}
+		else if age>34 and age<=54{
+			if current_date.hour>19{current_objective <- locations["home"]; do build_path;}
+			if current_date.hour>6{current_objective <- locations["work"]; do build_path;}
+		}
+		else if age>54 and age<=64{
+			if current_date.hour>13{current_objective <- locations["home"]; do build_path;}
+			if current_date.hour>8{current_objective <- locations["work"]; do build_path;}
+		}
+		else if age>64{}
 	}
 	action build_path{
 		current_route <- path_between(road_network,location,current_objective);
@@ -335,7 +329,8 @@ species people skills:[moving]{
 		if current_state = "stay"{do wander;}
 		else{
 			if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
-			do follow path:current_route move_weights:current_route.edges as_map(each::each.perimeter);
+			do goto target:current_objective on:road_network recompute_path:false move_weights:weight_map;
+			//do follow path:current_route move_weights:current_route.edges as_map(each::each.perimeter);
 		}
 	}
 	
@@ -366,7 +361,7 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 		target <- any_location_in(one_of(road));
 		do rebuildPath;
 	}
-	reflex move{
+	action move{
 		if location = target{
 			target <- any_location_in(one_of(road));
 			do rebuildPath;
@@ -399,7 +394,7 @@ species crime{
 	}
 }
 
-experiment plain type:gui{
+experiment Plain_test type:gui{
 	output{
 		/*display dem type:opengl{
 			graphics "elevation"{
