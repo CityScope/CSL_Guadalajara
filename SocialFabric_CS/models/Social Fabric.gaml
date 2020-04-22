@@ -17,9 +17,9 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
-	float buildings_z parameter: "buildings_z" category: "Visualization" <- 145.0;
-	float buildings_y parameter: "buildings_y" category: "Visualization" <- 870.0;
-	float buildings_x parameter: "buildings_x" category: "Visualization" <- 1897.0;
+	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
+	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
+	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0;
 	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
 	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
 	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
@@ -87,7 +87,7 @@ global torus:false{
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
 		road_network <- as_edge_graph(road);
-		create people number:200;
+		create people number:2000;
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -206,9 +206,13 @@ species places{
 species building {
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	
-	aspect default {
-		//draw shape at:{buildings_x,buildings_y,buildings_z} color:#yellow;
-		draw shape color:rgb(0,128,192,255) depth:rnd(20);
+	aspect terrain {
+		//draw shape at:{buildings_x,buildings_y,buildings_z} color:rgb (79, 176, 98,255);
+		float loc_x <- location.x;
+		float loc_y <- location.y;
+		cell tmp_cell <- cell({loc_x,loc_y});
+		float loc_z <- tmp_cell.grid_value;
+		draw shape color:rgb (61, 148, 85,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z} depth:rnd(3)+3#m;
 	}
 }
 
@@ -241,13 +245,13 @@ species people skills:[moving]{
 			"pavement_condition"::0.1,
 			"wm_ratio"::0.4];
 		occupation <- one_of("inactive","student","worker");					//Role of this agent
-		add "home"::any_location_in(one_of(building)) to: locations;			//Home location
-		add "school"::any_location_in(one_of(building)) to: locations;			//School location
-		add "work"::any_location_in(one_of(building)) to: locations;			//Work location
-		add "leisure"::any_location_in(one_of(building)) to: locations;			//Leisure location
-		location <- locations["home"];											//Initial location
-		//list<people> auxList <- people at_distance(vision_radius);
-		//add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
+		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
+		add "school"::building[rnd(length(building)-1)].location to: locations;			//School location
+		add "work"::building[rnd(length(building)-1)].location to: locations;			//Work location
+		add "leisure"::building[rnd(length(building)-1)].location to: locations;			//Leisure location
+		location <- locations["home"];/**/											//Initial location
+		list<people> auxList <- people at_distance(vision_radius);
+		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
 	}
 	action update_perception {
 		if sunlight>0 and vision_radius<60#m{
@@ -405,7 +409,7 @@ experiment Simulation type:gui{
 		layout #split;
 		display main background:#black type:opengl{
 			graphics "interaction_graph" {
-				if (interaction_graph != nil and (showInteractions)) {
+				if interaction_graph != nil and showInteractions {
 					loop eg over: interaction_graph.edges {
 						people src <- interaction_graph source_of eg;
 						people target <- interaction_graph target_of eg;
@@ -413,7 +417,7 @@ experiment Simulation type:gui{
 						draw line(edge_geom.points) color: rgb(0, 125, 0, 75);
 					}
 				}
-				if (showInteractions){
+				if showInteractions{
 					loop person over: people{
 						loop connection over:person.social_circle{
 							draw curve(person.location, connection.location,0.5, 200, 90) color:rgb (79, 194, 210,100);
@@ -421,13 +425,14 @@ experiment Simulation type:gui{
 					}
 				}
 			}
-			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;	
+			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;
+			species building aspect:terrain refresh:false;	
 			species people aspect:terrain;
 			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
                 float y <- 30#px;
-               	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
+               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
                 draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #plain);
-                draw "Time: "+  current_date at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
+                draw "Time: "+current_date[3]+":"+current_date[4] at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
                 draw "Sunlight: "+ sunlight at:{ 40#px, y + 70#px} color:#white font:font("SansSerif",20, #plain);
                /*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
