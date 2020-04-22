@@ -44,7 +44,7 @@ global torus:false{
 	geometry shape <- envelope(roads_file);
 	
 	init{
-		step <- 30#s;
+		step <- 5#s;
 		file blocks_file <- nil;
 		file terrain_file <- nil;
 		file block_fronts_file <- nil;
@@ -87,7 +87,10 @@ global torus:false{
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
 		road_network <- as_edge_graph(road);
-		create people number:2000;
+		create people number:1000;
+		ask people{
+			do init_social_circle;
+		}
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -205,14 +208,16 @@ species places{
 
 species building {
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
-	
-	aspect terrain {
+	aspect plain{
+		draw shape color:rgb (104, 204, 204,255);
+	}
+	aspect terrain{
 		//draw shape at:{buildings_x,buildings_y,buildings_z} color:rgb (79, 176, 98,255);
 		float loc_x <- location.x;
 		float loc_y <- location.y;
 		cell tmp_cell <- cell({loc_x,loc_y});
 		float loc_z <- tmp_cell.grid_value;
-		draw shape color:rgb (61, 148, 85,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z} depth:rnd(3)+3#m;
+		draw shape color:rgb (61, 148, 85,255) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")] at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z} depth:rnd(3)+3#m;
 	}
 }
 
@@ -236,6 +241,7 @@ species people skills:[moving]{
 	//personal variables
 	string occupation;						//The role of this agent
 	int age <- rnd(80);						//Age of this agent
+	rgb agent_color <- #yellow;
 	list<string> preferences; 				//EXPERIMENTAL FOR NETWORK ANALYSIS: People interact and make relationships with people according to an affinity value, which is obtained from preferences. (Read Yuan et al)
 	
 	init{
@@ -244,16 +250,26 @@ species people skills:[moving]{
 			"lighting_uniformity_radius"::0.25,
 			"pavement_condition"::0.1,
 			"wm_ratio"::0.4];
-		occupation <- one_of("inactive","student","worker");					//Role of this agent
+		occupation <- one_of("inactive","student","worker");							//Role of this agent
 		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
 		add "school"::building[rnd(length(building)-1)].location to: locations;			//School location
 		add "work"::building[rnd(length(building)-1)].location to: locations;			//Work location
-		add "leisure"::building[rnd(length(building)-1)].location to: locations;			//Leisure location
-		location <- locations["home"];/**/											//Initial location
+		add "leisure"::building[rnd(length(building)-1)].location to: locations;		//Leisure location
+		location <- locations["home"];													//Initial location
+		if age<=5{ color <- rgb (218, 210, 69,255);}
+		
+		//Defining the agent color depending on its age
+		else if age>5 and age<=14{agent_color <- rgb (228, 167, 39,255);}
+		else if age>14 and age<=19{agent_color <- rgb (34, 74, 193,255);}
+		else if age>19 and age<=34{agent_color <- rgb (204, 43, 107,255);}
+		else if age>34 and age<=54{agent_color <- rgb (17, 183, 34,255);}
+		else if age>54{agent_color <- rgb (40, 244, 230,255);}
+	}
+	action init_social_circle{
 		list<people> auxList <- people at_distance(vision_radius);
 		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
 	}
-	action update_perception {
+	action update_perception_value{
 		if sunlight>0 and vision_radius<60#m{
 			vision_radius <- vision_radius + vision_radius*sunlight;
 		}
@@ -263,7 +279,7 @@ species people skills:[moving]{
 		}
 		safety_perception <- sum;
 	}
-	action update_indicators_values {
+	reflex update_indicators_values{
 		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
 		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
 		//Considerar la introducción de crimenes a lo largo del día considerando como entrada datos georreferenciados. Además estos tienen que clasificarse porque 
@@ -292,11 +308,12 @@ species people skills:[moving]{
 				// relación de los agentes niños con agentes adultos por ciertas horas del día
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
 			//3.Si no se conocen: W-M   Si se conocen: W-W
-		list<people> nearPeople <- []; //People arround
+		do update_perception_value;
 	}
 	reflex build_routine when:current_state="stay"{
 		if age<=5{}
 		else if age>5 and age<=14{
+			agent_color <- rgb (228, 167, 39,255);
 			if current_date.hour>=19{current_objective <- locations["home"];current_state <- "onTheWay";}
 			else if current_date.hour>=14{current_objective <- locations["leisure"];current_state <- "onTheWay";}
 			else if current_date.hour>=9{current_objective <- locations["school"];current_state <- "onTheWay";}
@@ -324,22 +341,17 @@ species people skills:[moving]{
 		if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
 		do goto target:current_objective on:road_network recompute_path:false move_weights:weight_map;
 	}
-	
 	aspect plain{
-		rgb safety_color <- #yellow;
-		draw circle(3.0) color: safety_color at:{location.x,location.y,0};
+		draw circle(3.0) color: agent_color at:{location.x,location.y,0};
 	}
 	aspect terrain{
 		float loc_x <- location.x;
 		float loc_y <- location.y;
 		cell tmp_cell <- cell({loc_x,loc_y});
-		//agent tmp_cell <- cell grid_at {int(loc_x/length(grid[0])),int(loc_y/length(grid))};
 		float loc_z <- tmp_cell.grid_value;
 		point location_3d <- {loc_x,loc_y,loc_z};
-		//rgb safety_color <- rgb (255-(255*safety_perception), safety_perception*255, 0,200);
-		rgb safety_color <- #yellow;
-		draw sphere(1.0) color: safety_color at:location_3d;
-		if(showPerception){draw circle(vision_radius) border:safety_color empty:true;}
+		draw circle(1.0) color: agent_color at:location_3d;
+		if(showPerception){draw circle(vision_radius) border:agent_color empty:true;}
 	}
 }
 
@@ -392,12 +404,29 @@ experiment Plain_test type:gui{
 				draw dem(dem_file,terrain_texture,0.1);
 			}
 		}*/
-		display gridWithElevationTriangulated type: opengl {
+		display test type: opengl {
 			//grid cell elevation: grid_value triangulation: true refresh:false;
+			graphics "world"{
+				draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
+			}
 			species road aspect:white refresh:false;
+			species building aspect:plain;
 			species crime aspect:default;
-			//species building aspect:default refresh:false;
 			species people aspect:plain;
+			graphics "Family graph"{
+				if showInteractions{
+					loop person over: people{
+						loop connection over:person.social_circle{
+							draw curve(person.location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
+						}
+					}
+				}
+				if showPerception{
+					loop person over: people{
+						draw circle(person.vision_radius) empty:true color:#red at:person.location;
+					}
+				}
+			}
 		}
 	}
 }
@@ -420,7 +449,7 @@ experiment Simulation type:gui{
 				if showInteractions{
 					loop person over: people{
 						loop connection over:person.social_circle{
-							draw curve(person.location, connection.location,0.5, 200, 90) color:rgb (79, 194, 210,100);
+							draw curve(person.location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
 						} 
 					}
 				}
