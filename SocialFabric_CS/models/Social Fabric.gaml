@@ -85,12 +85,9 @@ global torus:false{
 		create road from:roads_file with:[road_id::int(read("CVEVIAL"))];
 		create building from:buildings_file;
 		do mapValues;		
-		weight_map <- road as_map(each::each.valuation);
+		weight_map <- road as_map(each::each.shape.perimeter);
 		road_network <- as_edge_graph(road);
-		create police_patrol number:10;
-		create building;
-		write "here";
-		create people number:50{age<-10;}
+		create people number:200;
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -239,7 +236,6 @@ species people skills:[moving]{
 	
 	init{
 		indicators_weights <- [													//How important is each indicator for this agent. All of them sum 1.
-			
 			"police_patrols"::0.25,
 			"lighting_uniformity_radius"::0.25,
 			"pavement_condition"::0.1,
@@ -250,9 +246,8 @@ species people skills:[moving]{
 		add "work"::any_location_in(one_of(building)) to: locations;			//Work location
 		add "leisure"::any_location_in(one_of(building)) to: locations;			//Leisure location
 		location <- locations["home"];											//Initial location
-		list<people> auxList <- people at_distance(vision_radius);
-		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
-		//do build_routine;
+		//list<people> auxList <- people at_distance(vision_radius);
+		//add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
 	}
 	action update_perception {
 		if sunlight>0 and vision_radius<60#m{
@@ -298,40 +293,32 @@ species people skills:[moving]{
 	reflex build_routine when:current_state="stay"{
 		if age<=5{}
 		else if age>5 and age<=14{
-			if current_date.hour>19{current_objective <- locations["home"]; do build_path;}
-			if current_date.hour>14{current_objective <- locations["leisure"]; do build_path;}
-			if current_date.hour>9{current_objective <- locations["school"]; do build_path;}
+			if current_date.hour>=19{current_objective <- locations["home"];current_state <- "onTheWay";}
+			else if current_date.hour>=14{current_objective <- locations["leisure"];current_state <- "onTheWay";}
+			else if current_date.hour>=9{current_objective <- locations["school"];current_state <- "onTheWay";}
 		}
 		else if age>14 and age<=19{
-			if current_date.hour>20{current_objective <- locations["home"]; do build_path;}
-			if current_date.hour>13{current_objective <- locations["work"]; do build_path;}
-			if current_date.hour>7{current_objective <- locations["school"]; do build_path;}
+			if current_date.hour>20{current_objective <- locations["home"]; current_state <- "onTheWay";}
+			if current_date.hour>13{current_objective <- locations["work"]; current_state <- "onTheWay";}
+			if current_date.hour>7{current_objective <- locations["school"]; current_state <- "onTheWay";}
 		}
 		else if age>19 and age<=34{
-			if current_date.hour>19{current_objective <- locations["home"]; do build_path;}
-			if current_date.hour>6{current_objective <- locations["work"]; do build_path;}
+			if current_date.hour>19{current_objective <- locations["home"]; current_state <- "onTheWay";}
+			if current_date.hour>6{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
 		else if age>34 and age<=54{
-			if current_date.hour>19{current_objective <- locations["home"]; do build_path;}
-			if current_date.hour>6{current_objective <- locations["work"]; do build_path;}
+			if current_date.hour>19{current_objective <- locations["home"]; current_state <- "onTheWay";}
+			if current_date.hour>6{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
 		else if age>54 and age<=64{
-			if current_date.hour>13{current_objective <- locations["home"]; do build_path;}
-			if current_date.hour>8{current_objective <- locations["work"]; do build_path;}
+			if current_date.hour>13{current_objective <- locations["home"]; current_state <- "onTheWay";}
+			if current_date.hour>8{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
 		else if age>64{}
 	}
-	action build_path{
-		current_route <- path_between(road_network,location,current_objective);
-		current_state <- "onTheWay";
-	}
-	reflex execute_routine{
-		if current_state = "stay"{do wander;}
-		else{
-			if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
-			do goto target:current_objective on:road_network recompute_path:false move_weights:weight_map;
-			//do follow path:current_route move_weights:current_route.edges as_map(each::each.perimeter);
-		}
+	reflex execute_routine when:current_state="onTheWay"{
+		if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
+		do goto target:current_objective on:road_network recompute_path:false move_weights:weight_map;
 	}
 	
 	aspect plain{
@@ -436,7 +423,6 @@ experiment Simulation type:gui{
 			}
 			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;	
 			species people aspect:terrain;
-			species police_patrol aspect:car;
 			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
                 float y <- 30#px;
                	draw ".:-0123456789WomenMTiSunlight" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
