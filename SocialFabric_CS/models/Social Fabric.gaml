@@ -23,47 +23,29 @@ global torus:false{
 	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
 	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
 	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
-	graph road_network;
-	map<road, float> weight_map;
-	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
-	
-	//people
-	int nb_people <- 0;
-	int flux_node_size <- 20;
-	int fluxid <- 1;
-	graph<people,people> interaction_graph;
+	//people related parameters
+	int nb_people <- 1000;
+	list<rgb> colors <- [rgb(218, 210, 69,255),rgb(228, 167, 39,255),rgb(34, 74, 193,255),rgb(204, 43, 107,255),rgb(17, 183, 34,255),rgb(40, 244, 230,255),#red];
 	
 	//SUNLIGHT
-	float sunlight   <- 0.0 update:max([float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2,0.0]); //Estimated function to get the sunlight [0.0 to 1.0]
-
+	float sunlight <- 0.0 update:max([float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2,0.0]); //Estimated function to get the sunlight [0.0 to 1.0]
 	date starting_date <- date([2020,4,23,6,0,0]);
-	file mask_file <- file("/gis/"+case_study+"/mask_wide.shp"); 
-	file roads_file <- file("/gis/"+case_study+"/roads_3857.shp");
-	file buildings_file <- file("/gis/"+case_study+"/Buildings_DepthHeight.shp");
+	graph road_network;
+	map<road, float> weight_map;
+	
+	//Import data
+	file mask_file <- file("/gis/"+case_study+"/world_shape.shp"); 
+	file roads_file <- file("/gis/"+case_study+"/roads.shp");
+	file buildings_file <- file("/gis/"+case_study+"/buildings.shp");
 	file terrain_texture <- file('/gis/fivecorners/texture.jpg') ;
-	file grid_data <- file("/gis/"+case_study+"/output_srtm.asc");
+	file grid_data <- file("/gis/"+case_study+"/terrain.asc");
+	file blocks_file <- file("/gis/"+case_study+"/blocks.shp");
+	file block_fronts_file <- file("/gis/"+case_study+"/block_fronts.shp");
+	file crimes_file <- file("/gis/"+case_study+"/crimes.shp");
 	geometry shape <- envelope(mask_file);
 	
 	init{
-		step <- 10#s;
-		file blocks_file <- nil;
-		file terrain_file <- nil;
-		file block_fronts_file <- nil;
-		file places_file <- nil;
-		file crime_file <- nil;
-		
-		
-		string inputFileName <- "";
-		
-		inputFileName <- "/gis/"+case_study+"/blocks.shp";
-		if file_exists(inputFileName){ blocks_file <- file(inputFileName);}
-		
-		inputFileName <- "/gis/"+case_study+"/block_fronts.shp";
-		if file_exists(inputFileName){ block_fronts_file <- file(inputFileName);}
-		
-		//inputFileName <- "/gis/"+case_study+"/crime.shp";
-		//if file_exists(inputFileName){ crime_file <- file(inputFileName);}		
-		
+		step <- 15#s;
 		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
 			if str_lightning = "Todas las vialidades"{ int_lightning <- 2; }
 			else if str_lightning = "Alguna vialidad"{ int_lightning <- 1; }
@@ -88,10 +70,10 @@ global torus:false{
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
 		road_network <- as_edge_graph(road);
-		create people number:1000;
-		ask people{
-			do init_social_circle;
-		}
+		create people number:nb_people;
+		create police_patrol number:5;
+		ask people{do init_social_circle;}
+		create crime from:crimes_file with:[type::string(read("DEL"))];
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -124,8 +106,8 @@ species road{
 		weight <- valuation; //Normalization of valuation 0 to 1 according to the model
 		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
 	}
-	//aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
-	aspect default{draw shape color: rgb(255*valuation,50,50,100);}
+	aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
+	//aspect default{draw shape color: rgb(255*weight,50,50,100);}
 	aspect white{draw shape color: #white;}
 }
 
@@ -193,9 +175,6 @@ species places{
 	aspect default{ 
 		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo depth:height;
 	}
-	aspect interland{
-		if type="interland"{draw square(flux_node_size) color: rgb (232, 64, 126,255) border: #maroon;}
-	}
 	action interactWithroads{
 		list<road> inRank <- [];
 		inRank <- road at_distance(40);
@@ -209,7 +188,7 @@ species places{
 
 species building {
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
-	aspect plain{
+	aspect flat{
 		draw shape color:rgb (104, 204, 204,255);
 	}
 	aspect terrain{
@@ -218,11 +197,11 @@ species building {
 		float loc_y <- location.y;
 		cell tmp_cell <- cell({loc_x,loc_y});
 		float loc_z <- tmp_cell.grid_value;
-		draw shape color:rgb (61, 148, 85,255) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")] at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z} depth:rnd(3)+3#m;
+		draw shape color:rgb (61, 148, 85,255) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")] at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z} depth:rnd(3)+5#m;
 	}
 }
 
-species people skills:[moving]{
+species people skills:[moving] parallel:true{
 	
 	//Importar datos de csv para rutinas, relaciones, perfil.
 	//Perception related variables
@@ -242,7 +221,8 @@ species people skills:[moving]{
 	//personal variables
 	string occupation;						//The role of this agent
 	int age <- rnd(80);						//Age of this agent
-	rgb agent_color <- #yellow;
+	int age_group;
+	rgb agent_color;
 	list<string> preferences; 				//EXPERIMENTAL FOR NETWORK ANALYSIS: People interact and make relationships with people according to an affinity value, which is obtained from preferences. (Read Yuan et al)
 	
 	init{
@@ -250,21 +230,20 @@ species people skills:[moving]{
 			"police_patrols"::0.25,
 			"lighting_uniformity_radius"::0.25,
 			"pavement_condition"::0.1,
-			"wm_ratio"::0.4];
+			"other_people"::0.4];
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
-		add "home"::road[rnd(length(road)-1)].location to: locations;			//Home location
-		add "school"::road[rnd(length(road)-1)].location to: locations;			//School location
-		add "work"::road[rnd(length(road)-1)].location to: locations;			//Work location
-		add "leisure"::road[rnd(length(road)-1)].location to: locations;		//Leisure location
+		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
+		add "school"::building[rnd(length(building)-1)].location to: locations;			//School location
+		add "work"::building[rnd(length(building)-1)].location to: locations;			//Work location
+		add "leisure"::building[rnd(length(building)-1)].location to: locations;		//Leisure location
 		location <- locations["home"];													//Initial location
-		if age<=5{ color <- rgb (218, 210, 69,255);}
-		
-		//Defining the agent color depending on its age
-		else if age>5 and age<=14{agent_color <- rgb (228, 167, 39,255);}
-		else if age>14 and age<=19{agent_color <- rgb (34, 74, 193,255);}
-		else if age>19 and age<=34{agent_color <- rgb (204, 43, 107,255);}
-		else if age>34 and age<=54{agent_color <- rgb (17, 183, 34,255);}
-		else if age>54{agent_color <- rgb (40, 244, 230,255);}
+		//Defining the age group depending
+		if age<=5{age_group<-0;}
+		else if age>5 and age<=14{age_group<-1;}
+		else if age>14 and age<=19{age_group<-2;}
+		else if age>19 and age<=34{age_group<-3;}
+		else if age>34 and age<=54{age_group<-4;}
+		else if age>54{age_group<-5;}
 	}
 	action init_social_circle{
 		list<people> auxList <- people at_distance(vision_radius);
@@ -280,7 +259,7 @@ species people skills:[moving]{
 		}
 		safety_perception <- sum;
 	}
-	reflex update_indicators_values{
+	reflex update_indicators_values when:every(10#minute){
 		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
 		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
 		//Considerar la introducción de crimenes a lo largo del día considerando como entrada datos georreferenciados. Además estos tienen que clasificarse porque 
@@ -309,41 +288,42 @@ species people skills:[moving]{
 				// relación de los agentes niños con agentes adultos por ciertas horas del día
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
 			//3.Si no se conocen: W-M   Si se conocen: W-W
+		list<people> auxPeople <- people at_distance(vision_radius);
+		put auxPeople!=[]?1.0:0.0 at:"other_people" in:indicators_values;
 		do update_perception_value;
 	}
 	reflex build_routine when:current_state="stay"{
-		if age<=5{}
-		else if age>5 and age<=14{
+		if age_group=0{}
+		else if age_group=1{
 			agent_color <- rgb (228, 167, 39,255);
 			if current_date.hour>=19{current_objective <- locations["home"];current_state <- "onTheWay";}
 			else if current_date.hour>=14{current_objective <- locations["leisure"];current_state <- "onTheWay";}
 			else if current_date.hour>=9{current_objective <- locations["school"];current_state <- "onTheWay";}
 		}
-		else if age>14 and age<=19{
+		else if age_group=2{
 			if current_date.hour>20{current_objective <- locations["home"]; current_state <- "onTheWay";}
 			if current_date.hour>13{current_objective <- locations["work"]; current_state <- "onTheWay";}
 			if current_date.hour>7{current_objective <- locations["school"]; current_state <- "onTheWay";}
 		}
-		else if age>19 and age<=34{
+		else if age_group=3{
 			if current_date.hour>19{current_objective <- locations["home"]; current_state <- "onTheWay";}
 			if current_date.hour>6{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
-		else if age>34 and age<=54{
+		else if age_group=4{
 			if current_date.hour>19{current_objective <- locations["home"]; current_state <- "onTheWay";}
 			if current_date.hour>6{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
-		else if age>54 and age<=64{
+		else if age_group=5{
 			if current_date.hour>13{current_objective <- locations["home"]; current_state <- "onTheWay";}
 			if current_date.hour>8{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
-		else if age>64{}
 	}
 	reflex execute_routine when:current_state="onTheWay"{
 		if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
 		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
-	aspect plain{
-		draw circle(3.0) color: agent_color at:{location.x,location.y,0};
+	aspect flat{
+		draw circle(3.0) color: rgb(255-(255*safety_perception),255*safety_perception,100) at:location;
 	}
 	aspect terrain{
 		float loc_x <- location.x;
@@ -351,7 +331,7 @@ species people skills:[moving]{
 		cell tmp_cell <- cell({loc_x,loc_y});
 		float loc_z <- tmp_cell.grid_value;
 		point location_3d <- {loc_x,loc_y,loc_z};
-		draw circle(1.0) color: agent_color at:location_3d;
+		draw circle(1.0) color: colors[age_group] at:location_3d;
 		if(showPerception){draw circle(vision_radius) border:agent_color empty:true;}
 	}
 }
@@ -361,29 +341,29 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 	image_file car;
 	path route;
 	init{
-		location <- any_location_in(one_of(road));
-		target <- any_location_in(one_of(road));
-		do rebuildPath;
+		location <- building[rnd(length(building)-1)].location;
+		target <- building[rnd(length(building)-1)].location;
 	}
-	action move{
-		if location = target{
-			target <- any_location_in(one_of(road));
-			do rebuildPath;
-		}
-		do follow path:route move_weights:route.edges as_map(each::each.perimeter);
-		location <- {location.x,location.y};
+	reflex move{
+		if location = target{target <- building[rnd(length(building)-1)].location;}
+		do goto target:target on:road_network move_weights:weight_map;
 	}
-	action rebuildPath{
-		route <- path_between(road_network, location, target);
-		loop while: route = nil{
-			route <- path_between(road_network, location, target);	
-		}
+	aspect flat{
+		draw rectangle(10,3) color:#red;
 	}
-	aspect car{
-		draw rectangle(3,2) color:#red;
+	aspect flat_obj{
+		draw obj_file("/img/police.obj",90::{-1,0,0}) size: 20 at: {location.x,location.y,10} rotate: heading color: #red;
+	}
+	aspect terrain{
+		float loc_x <- location.x;
+		float loc_y <- location.y;
+		cell tmp_cell <- cell({loc_x,loc_y});
+		float loc_z <- tmp_cell.grid_value;
+		point location_3d <- {loc_x,loc_y,loc_z};
+		draw obj_file("/img/police.obj",90::{-1,0,0}) size: 20 at: location_3d rotate: heading color: #red;
 	}
 }
-
+	
 grid cell file:grid_data{
 	rgb color;
 	init{
@@ -393,26 +373,19 @@ grid cell file:grid_data{
 }
 
 species crime{
-	aspect default{
-		draw circle(mod(cycle,10)+10) color:rgb (245, 66, 14,125);
-	}
+	string type;
 }
 
-experiment Plain_test type:gui{
+experiment Flat_2D type:gui{
 	output{
-		/*display dem type:opengl{
-			graphics "elevation"{
-				draw dem(dem_file,terrain_texture,0.1);
-			}
-		}*/
-		display test type: opengl {
-			//grid cell elevation: grid_value triangulation: true refresh:false;
-			/*graphics "world" refresh:false{
+		layout #split;
+		display "Main" type: opengl {
+			graphics "world" refresh:false{
 				draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
-			}*/
-			species road aspect:white refresh:false;
-			//species building aspect:plain refresh:false;
-			species people aspect:plain;
+			}
+			species police_patrol aspect:flat_obj;
+			//species building aspect:flat refresh:false;
+			species people aspect:flat;
 			graphics "Family graph"{
 				if showInteractions{
 					loop person over: people{
@@ -428,24 +401,35 @@ experiment Plain_test type:gui{
 				}
 			}
 		}
+		display "Chart" type: java2D  refresh:every(30#second)
+		{
+			chart "Output" type: radar background:#black color:rgb (255, 255, 255,255) axes: # lightgreen series_label_position: xaxis x_serie_labels: ["Formal surveillance", "Natural surveillance", "Confidence in justice"]
+			{
+				data "Perception" value: [length(police_patrol)/length(people),sunlight,1 + sin(1 * cycle * 5)] color: # blue;
+			}
+
+		}
+		/*display "Chart" background:#black type:java2D refresh:every(1#minute){
+			
+			overlay size: { 180 #px, 100 #px } {
+				draw "Time: "+current_date.hour+":"+current_date.minute at:{350#px,30#px} color:#white font: font("Arial", 20,#flat);
+			}
+			chart "Global status" type: series x_label: "Time" style:ring background:#black color:#white label_font:"Arial" x_tick_unit:(step*cycle)/3600 memorize:false label_font_size:15 legend_font_size:15 title_font:"Arial" title_font_size:16 title_visible:false{
+				data "Formal surveillance" value: length(police_patrol)/length(people) color: colors[6] marker: false style: line;
+				data "Natural surveillance" value: sunlight color: #gamaorange marker: false style: line;
+				data "Confidence in justice" value: sunlight color: #blue marker: false style: line;
+			}
+		}*/
 	}
 }
 
-experiment Simulation type:gui{
+experiment Terrain_3D type:gui{
 	
 	output{
 		
 		layout #split;
 		display main background:#black type:opengl{
 			graphics "interaction_graph" {
-				if interaction_graph != nil and showInteractions {
-					loop eg over: interaction_graph.edges {
-						people src <- interaction_graph source_of eg;
-						people target <- interaction_graph target_of eg;
-						geometry edge_geom <- geometry(eg);
-						draw line(edge_geom.points) color: rgb(0, 125, 0, 75);
-					}
-				}
 				if showInteractions{
 					loop person over: people{
 						loop connection over:person.social_circle{
@@ -455,14 +439,15 @@ experiment Simulation type:gui{
 				}
 			}
 			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;
-			species building aspect:terrain refresh:true;	
+			species building aspect:terrain refresh:false;
+			species police_patrol aspect:terrain;
 			species people aspect:terrain;
 			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
                 float y <- 30#px;
-               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
-                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #plain);
-                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white font:font("SansSerif",20, #plain);
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
+               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #flat);
+                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #flat);
+                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white font:font("SansSerif",20, #flat);
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #flat);
                /*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
