@@ -37,14 +37,15 @@ global torus:false{
 	float sunlight   <- 0.0 update:max([float(-0.03*(list(current_date)[3]+(list(current_date)[4]/60)-13)^2+1) with_precision 2,0.0]); //Estimated function to get the sunlight [0.0 to 1.0]
 
 	date starting_date <- date([2020,4,23,6,0,0]);
-	file roads_file <- file("/gis/"+case_study+"/roads.shp");
+	file mask_file <- file("/gis/"+case_study+"/mask_wide.shp"); 
+	file roads_file <- file("/gis/"+case_study+"/roads_3857.shp");
 	file buildings_file <- file("/gis/"+case_study+"/Buildings_DepthHeight.shp");
 	file terrain_texture <- file('/gis/fivecorners/texture.jpg') ;
 	file grid_data <- file("/gis/"+case_study+"/output_srtm.asc");
-	geometry shape <- envelope(roads_file);
+	geometry shape <- envelope(mask_file);
 	
 	init{
-		step <- 5#s;
+		step <- 10#s;
 		file blocks_file <- nil;
 		file terrain_file <- nil;
 		file block_fronts_file <- nil;
@@ -251,10 +252,10 @@ species people skills:[moving]{
 			"pavement_condition"::0.1,
 			"wm_ratio"::0.4];
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
-		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
-		add "school"::building[rnd(length(building)-1)].location to: locations;			//School location
-		add "work"::building[rnd(length(building)-1)].location to: locations;			//Work location
-		add "leisure"::building[rnd(length(building)-1)].location to: locations;		//Leisure location
+		add "home"::road[rnd(length(road)-1)].location to: locations;			//Home location
+		add "school"::road[rnd(length(road)-1)].location to: locations;			//School location
+		add "work"::road[rnd(length(road)-1)].location to: locations;			//Work location
+		add "leisure"::road[rnd(length(road)-1)].location to: locations;		//Leisure location
 		location <- locations["home"];													//Initial location
 		if age<=5{ color <- rgb (218, 210, 69,255);}
 		
@@ -339,7 +340,7 @@ species people skills:[moving]{
 	}
 	reflex execute_routine when:current_state="onTheWay"{
 		if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
-		do goto target:current_objective on:road_network recompute_path:false move_weights:weight_map;
+		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
 	aspect plain{
 		draw circle(3.0) color: agent_color at:{location.x,location.y,0};
@@ -406,12 +407,11 @@ experiment Plain_test type:gui{
 		}*/
 		display test type: opengl {
 			//grid cell elevation: grid_value triangulation: true refresh:false;
-			graphics "world"{
+			/*graphics "world" refresh:false{
 				draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
-			}
+			}*/
 			species road aspect:white refresh:false;
-			species building aspect:plain;
-			species crime aspect:default;
+			//species building aspect:plain refresh:false;
 			species people aspect:plain;
 			graphics "Family graph"{
 				if showInteractions{
@@ -455,14 +455,14 @@ experiment Simulation type:gui{
 				}
 			}
 			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;
-			species building aspect:terrain refresh:false;	
+			species building aspect:terrain refresh:true;	
 			species people aspect:terrain;
 			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
                 float y <- 30#px;
                	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #plain);
                 draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #plain);
-                draw "Time: "+current_date[3]+":"+current_date[4] at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 70#px} color:#white font:font("SansSerif",20, #plain);
+                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white font:font("SansSerif",20, #plain);
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #plain);
                /*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
