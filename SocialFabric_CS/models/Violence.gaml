@@ -9,7 +9,7 @@ model Violence
 
 global torus:false{
 
-	string case_study parameter: 'Case Study:' category: 'Initialization' <-"centinela" among:["centinela", "miramar", "tijuana"];
+	string case_study parameter: 'Case Study:' category: 'Initialization' <-"fivecorners" among:["fivecorners", "miramar", "tijuana"];
 	int  nbPeople parameter: 'Number of people:' category: 'Initialization' <- 250 min: 100 max: 1000;  
 	int  nbOffender parameter: 'Number of offender:' category: 'Initialization' <- 20 min: 10 max: 100;
 	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 150 min: 50 max: 1000;  
