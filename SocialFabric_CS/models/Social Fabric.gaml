@@ -42,6 +42,7 @@ global torus:false{
 	file blocks_file <- file("/gis/"+case_study+"/blocks.shp");
 	file block_fronts_file <- file("/gis/"+case_study+"/block_fronts.shp");
 	file crimes_file <- file("/gis/"+case_study+"/crimes.shp");
+	file denue_file <- file("/gis/"+case_study+"/denue.shp");
 	geometry shape <- envelope(mask_file);
 	
 	init{
@@ -67,6 +68,7 @@ global torus:false{
 		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), road_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
 		create road from:roads_file with:[road_id::int(read("CVEVIAL"))];
 		create building from:buildings_file;
+		create places from:denue_file;
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
 		road_network <- as_edge_graph(road);
@@ -167,22 +169,10 @@ species block_front{
 }
 
 species places{
-	string id;
-	string name_str;
-	float height;
-	string type;
-	init{ height <- float(50+rnd(100)); }
+	string place_name;
+	string activity;
 	aspect default{ 
-		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo depth:height;
-	}
-	action interactWithroads{
-		list<road> inRank <- [];
-		inRank <- road at_distance(40);
-		if inRank!=[]{
-			ask inRank{
-				valuation <- 1.0;
-			}
-		}
+		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo;
 	}
 }
 
@@ -233,9 +223,9 @@ species people skills:[moving] parallel:true{
 			"other_people"::0.4];
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
 		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
-		add "school"::building[rnd(length(building)-1)].location to: locations;			//School location
-		add "work"::building[rnd(length(building)-1)].location to: locations;			//Work location
-		add "leisure"::building[rnd(length(building)-1)].location to: locations;		//Leisure location
+		add "school"::places[rnd(length(places)-1)].location to: locations;			//School location
+		add "work"::places[rnd(length(places)-1)].location to: locations;			//Work location
+		add "leisure"::places[rnd(length(places)-1)].location to: locations;		//Leisure location
 		location <- locations["home"];													//Initial location
 		//Defining the age group depending
 		if age<=5{age_group<-0;}
