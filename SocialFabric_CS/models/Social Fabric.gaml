@@ -188,7 +188,7 @@ species building_obj{
 species building {
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	aspect flat{
-		draw shape color:rgb (104, 204, 204,255);
+		draw shape color:rgb (145,145,145) depth:rnd(40);
 	}
 	aspect terrain{
 		//draw shape at:{buildings_x,buildings_y,buildings_z} color:rgb (79, 176, 98,255);
@@ -322,7 +322,7 @@ species people skills:[moving] parallel:true{
 		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
 	aspect flat{
-		draw circle(3.0) color: colors[age_group] at:location;
+		draw circle((1-safety_perception)*10) color: colors[age_group] at:location;
 		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,100) at:location empty:true;}
 		if showInteractions{
 			loop connection over:social_circle{
@@ -386,10 +386,10 @@ experiment Flat_2D type:gui{
 		layout #split;
 		display "Main" type: opengl {
 			graphics "world" refresh:false{
-				draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
+				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
 			}
 			species police_patrol aspect:flat_obj;
-			//species building aspect:flat refresh:false;
+			species building aspect:flat refresh:false;
 			species people aspect:flat;
 			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
 				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",20,#plain);
