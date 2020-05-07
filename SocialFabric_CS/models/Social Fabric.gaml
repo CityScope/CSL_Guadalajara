@@ -322,7 +322,13 @@ species people skills:[moving] parallel:true{
 		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
 	aspect flat{
-		draw circle(3.0) color: rgb(255-(255*safety_perception),255*safety_perception,100) at:location;
+		draw circle(3.0) color: colors[age_group] at:location;
+		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,100) at:location empty:true;}
+		if showInteractions{
+			loop connection over:social_circle{
+				draw curve(location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
+			}
+		}
 	}
 	aspect terrain{
 		float loc_x <- location.x;
@@ -385,50 +391,31 @@ experiment Flat_2D type:gui{
 			species police_patrol aspect:flat_obj;
 			//species building aspect:flat refresh:false;
 			species people aspect:flat;
-			graphics "Family graph"{
-				if showInteractions{
-					loop person over: people{
-						float loc_x <- location.x;
-						float loc_y <- location.y;
-						cell tmp_cell <- cell({loc_x,loc_y});
-						float loc_z <- tmp_cell.grid_value;
-						point location_3d <- {loc_x,loc_y,loc_z};
-						float loc2_x <- location.x;
-						float loc2_y <- location.y;
-						tmp_cell <- cell({loc_x,loc_y});
-						float loc2_z <- tmp_cell.grid_value;
-						point location2_3d <- {loc_x,loc_y,loc_z};
-						loop connection over:person.social_circle{
-							draw curve(location_3d, location2_3d,1.0, 200, 90) color:rgb (79, 194, 210,100);
-						}
-					}
-				}
-				if showPerception{
-					loop person over: people{
-						draw circle(person.vision_radius) empty:true color:#red at:person.location;
-					}
-				}
-			}
-			overlay position: { 0, 0 } size: { 435,600 } background: # black transparency: 0.5 border: #black {
-                float y <- 30#px;
-               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0);
-                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white;
-                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white;
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white;
-                draw "Age Range" color:#white at:{40#px,y+80#px} font:font("Arial",15,#bold);
-                draw circle(10) color:colors[1] at:{40#px, y + 100#px};
-                draw "(5,14]" color:#white at:{50#px,y+103#px};
-                draw circle(10) color:colors[2] at:{40#px, y + 120#px};
-                draw "(14,19]" color:#white at:{50#px,y+123#px};
-                draw circle(10) color:colors[3] at:{40#px, y + 140#px};
-                draw "(19,34]" color:#white at:{50#px,y+143#px};
-                draw circle(10) color:colors[4] at:{40#px, y + 160#px};
-                draw "(34,54]" color:#white at:{50#px,y+163#px};
-                draw circle(10) color:colors[5] at:{40#px, y + 180#px};
-                draw ">54" color:#white at:{50#px,y+183#px};
-                draw  "Social Circle" color:#white at:{40#px,y+210#px} font:font("Arial",15,#bold);
-                draw line({40#px,y+230#px},{65#px,y+230#px}) color:rgb (79, 194, 210,100) width:5;
-                draw "Family" color:#white at:{70#px,y+235#px};
+			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
+				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",20,#plain);
+				//draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {1000#px,1000#px} color:rgb(0,0,0,0) font:font("Arial",25,#bold);
+				draw "People: " +  length(people) at: { 40#px, 40#px } color: #white font:font("Arial",20,#plain);
+				draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, 65#px} color:#white font:font("Arial",20,#plain);
+				draw "Sunlight: "+ sunlight at:{ 40#px, 90#px} color:#white font:font("Arial",20,#plain);
+				draw "Age Range" color:#white at:{40#px,130#px} font:font("Arial",25,#bold);
+				draw circle(10) color:colors[1] at:{40#px, 160#px};
+				draw "(5,14]" color:#white at:{50#px,165#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[2] at:{40#px, 190#px};
+				draw "(14,19]" color:#white at:{50#px,195#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[3] at:{40#px, 220#px};
+				draw "(19,34]" color:#white at:{50#px,225#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[4] at:{40#px, 250#px};
+				draw "(34,54]" color:#white at:{50#px,255#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[5] at:{40#px, 280#px};
+				draw ">54" color:#white at:{50#px,285#px} font:font("Arial",20,#plain);
+				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",25,#bold);
+				draw line({40#px,345#px},{65#px,345#px}) color:rgb (79, 194, 210,100) width:5;
+				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",20,#plain);
+				draw  "Safety" color:#white at:{40#px,385#px} font:font("Arial",25,#bold);
+				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,420#px};
+				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{55#px,420#px};
+				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{65#px,420#px};
+				draw "Perception" color:#white at:{75#px,425#px} font:font("Arial",20,#bold);
                /*	if age<=5{age_group<-0;}
 					else if age>5 and age<=14{age_group<-1;}
 					else if age>14 and age<=19{age_group<-2;}
@@ -477,36 +464,30 @@ experiment Terrain_3D type:gui{
 			species police_patrol aspect:terrain;
 			species people aspect:terrain;
 			overlay position: { 0, 0 } size: { 435,600 } background: # black transparency: 0.5 border: #black {
-                float y <- 30#px;
-               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0);
-                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white;
-                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white;
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white;
-                draw "Age Range" color:#white at:{40#px,y+80#px} font:font("Arial",15,#bold);
-                draw circle(10) color:colors[1] at:{40#px, y + 100#px};
-                draw "(5,14]" color:#white at:{50#px,y+103#px};
-                draw circle(10) color:colors[2] at:{40#px, y + 120#px};
-                draw "(14,19]" color:#white at:{50#px,y+123#px};
-                draw circle(10) color:colors[3] at:{40#px, y + 140#px};
-                draw "(19,34]" color:#white at:{50#px,y+143#px};
-                draw circle(10) color:colors[4] at:{40#px, y + 160#px};
-                draw "(34,54]" color:#white at:{50#px,y+163#px};
-                draw circle(10) color:colors[5] at:{40#px, y + 180#px};
-                draw ">54" color:#white at:{50#px,y+183#px};
-                draw  "Social Circle" color:#white at:{40#px,y+210#px} font:font("Arial",15,#bold);
-                draw line({40#px,y+230#px},{65#px,y+230#px}) color:rgb (79, 194, 210,100) width:5;
-                draw "Family" color:#white at:{70#px,y+235#px};
-               /*	if age<=5{age_group<-0;}
-					else if age>5 and age<=14{age_group<-1;}
-					else if age>14 and age<=19{age_group<-2;}
-					else if age>19 and age<=34{age_group<-3;}
-					else if age>34 and age<=54{age_group<-4;}
-					else if age>54{age_group<-5;}
-                * draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
-				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
-				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
-				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
-				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);*/
+				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",20,#plain);
+				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",25,#bold);
+				draw "People: " +  length(people) at: { 40#px, 40#px } color: #white font:font("Arial",20,#plain);
+				draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, 65#px} color:#white font:font("Arial",20,#plain);
+				draw "Sunlight: "+ sunlight at:{ 40#px, 90#px} color:#white font:font("Arial",20,#plain);
+				draw "Age Range" color:#white at:{40#px,130#px} font:font("Arial",25,#bold);
+				draw circle(10) color:colors[1] at:{40#px, 160#px};
+				draw "(5,14]" color:#white at:{50#px,165#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[2] at:{40#px, 190#px};
+				draw "(14,19]" color:#white at:{50#px,195#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[3] at:{40#px, 220#px};
+				draw "(19,34]" color:#white at:{50#px,225#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[4] at:{40#px, 250#px};
+				draw "(34,54]" color:#white at:{50#px,255#px} font:font("Arial",20,#plain);
+				draw circle(10) color:colors[5] at:{40#px, 280#px};
+				draw ">54" color:#white at:{50#px,285#px} font:font("Arial",20,#plain);
+				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",25,#bold);
+				draw line({40#px,345#px},{65#px,345#px}) color:rgb (79, 194, 210,100) width:5;
+				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",20,#plain);
+				draw  "Safety" color:#white at:{40#px,385#px} font:font("Arial",25,#bold);
+				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,420#px};
+				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{55#px,420#px};
+				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{65#px,420#px};
+				draw "Perception" color:#white at:{75#px,425#px} font:font("Arial",20,#bold);
             }
 		}
 		
