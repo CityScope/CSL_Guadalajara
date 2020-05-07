@@ -68,6 +68,7 @@ global torus:false{
 		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), road_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
 		create road from:roads_file with:[road_id::int(read("CVEVIAL"))];
 		create building from:buildings_file;
+		create building_obj;
 		create places from:denue_file;
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
@@ -175,7 +176,15 @@ species places{
 		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo;
 	}
 }
-
+species building_obj{
+	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
+	aspect terrain{
+		float loc_x <- location.x;
+		float loc_y <- location.y;
+		float loc_z <- location.z;
+		draw shape color:rgb (128, 128, 128,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z};
+	}
+}
 species building {
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	aspect flat{
@@ -187,7 +196,7 @@ species building {
 		float loc_y <- location.y;
 		cell tmp_cell <- cell({loc_x,loc_y});
 		float loc_z <- tmp_cell.grid_value;
-		draw shape color:rgb (61, 148, 85,255) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")] at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z} depth:rnd(3)+5#m;
+		draw shape color:rgb (61, 148, 85,255) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")] at:{loc_x,loc_y,loc_z} depth:rnd(3)+5#m;
 	}
 }
 
@@ -249,7 +258,7 @@ species people skills:[moving] parallel:true{
 		}
 		safety_perception <- sum;
 	}
-	reflex update_indicators_values when:every(10#minute){
+	reflex update_indicators_values when:every(90#second) and flip(0.1){
 		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
 		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
 		//Considerar la introducción de crimenes a lo largo del día considerando como entrada datos georreferenciados. Además estos tienen que clasificarse porque 
@@ -322,7 +331,7 @@ species people skills:[moving] parallel:true{
 		float loc_z <- tmp_cell.grid_value;
 		point location_3d <- {loc_x,loc_y,loc_z};
 		draw circle(1.0) color: colors[age_group] at:location_3d;
-		if(showPerception){draw circle(vision_radius) border:agent_color empty:true;}
+		if(showPerception){draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,100) at:location_3d empty:true;}
 	}
 }
 
@@ -349,8 +358,8 @@ species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 		float loc_y <- location.y;
 		cell tmp_cell <- cell({loc_x,loc_y});
 		float loc_z <- tmp_cell.grid_value;
-		point location_3d <- {loc_x,loc_y,loc_z};
-		draw obj_file("/img/police.obj",90::{-1,0,0}) size: 20 at: location_3d rotate: heading color: #red;
+		point location_3d <- {loc_x,loc_y,loc_z+5};
+		draw obj_file("/img/police.obj",90::{-1,0,0}) size: 10 at: location_3d rotate: heading color: #red;
 	}
 }
 	
@@ -379,8 +388,18 @@ experiment Flat_2D type:gui{
 			graphics "Family graph"{
 				if showInteractions{
 					loop person over: people{
+						float loc_x <- location.x;
+						float loc_y <- location.y;
+						cell tmp_cell <- cell({loc_x,loc_y});
+						float loc_z <- tmp_cell.grid_value;
+						point location_3d <- {loc_x,loc_y,loc_z};
+						float loc2_x <- location.x;
+						float loc2_y <- location.y;
+						tmp_cell <- cell({loc_x,loc_y});
+						float loc2_z <- tmp_cell.grid_value;
+						point location2_3d <- {loc_x,loc_y,loc_z};
 						loop connection over:person.social_circle{
-							draw curve(person.location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
+							draw curve(location_3d, location2_3d,1.0, 200, 90) color:rgb (79, 194, 210,100);
 						}
 					}
 				}
@@ -390,26 +409,40 @@ experiment Flat_2D type:gui{
 					}
 				}
 			}
+			overlay position: { 0, 0 } size: { 435,600 } background: # black transparency: 0.5 border: #black {
+                float y <- 30#px;
+               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0);
+                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white;
+                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white;
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white;
+                draw "Age Range" color:#white at:{40#px,y+80#px} font:font("Arial",15,#bold);
+                draw circle(10) color:colors[1] at:{40#px, y + 100#px};
+                draw "(5,14]" color:#white at:{50#px,y+103#px};
+                draw circle(10) color:colors[2] at:{40#px, y + 120#px};
+                draw "(14,19]" color:#white at:{50#px,y+123#px};
+                draw circle(10) color:colors[3] at:{40#px, y + 140#px};
+                draw "(19,34]" color:#white at:{50#px,y+143#px};
+                draw circle(10) color:colors[4] at:{40#px, y + 160#px};
+                draw "(34,54]" color:#white at:{50#px,y+163#px};
+                draw circle(10) color:colors[5] at:{40#px, y + 180#px};
+                draw ">54" color:#white at:{50#px,y+183#px};
+                draw  "Social Circle" color:#white at:{40#px,y+210#px} font:font("Arial",15,#bold);
+                draw line({40#px,y+230#px},{65#px,y+230#px}) color:rgb (79, 194, 210,100) width:5;
+                draw "Family" color:#white at:{70#px,y+235#px};
+               /*	if age<=5{age_group<-0;}
+					else if age>5 and age<=14{age_group<-1;}
+					else if age>14 and age<=19{age_group<-2;}
+					else if age>19 and age<=34{age_group<-3;}
+					else if age>34 and age<=54{age_group<-4;}
+					else if age>54{age_group<-5;}
+                * draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
+				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
+				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
+				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
+				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);*/
+            }
 		}
-		display "Chart" type: java2D  refresh:every(30#second)
-		{
-			chart "Output" type: radar background:#black color:rgb (255, 255, 255,255) axes: # lightgreen series_label_position: xaxis x_serie_labels: ["Formal surveillance", "Natural surveillance", "Confidence in justice"]
-			{
-				data "Perception" value: [length(police_patrol)/length(people),sunlight,1 + sin(1 * cycle * 5)] color: # blue;
-			}
-
-		}
-		/*display "Chart" background:#black type:java2D refresh:every(1#minute){
-			
-			overlay size: { 180 #px, 100 #px } {
-				draw "Time: "+current_date.hour+":"+current_date.minute at:{350#px,30#px} color:#white font: font("Arial", 20,#flat);
-			}
-			chart "Global status" type: series x_label: "Time" style:ring background:#black color:#white label_font:"Arial" x_tick_unit:(step*cycle)/3600 memorize:false label_font_size:15 legend_font_size:15 title_font:"Arial" title_font_size:16 title_visible:false{
-				data "Formal surveillance" value: length(police_patrol)/length(people) color: colors[6] marker: false style: line;
-				data "Natural surveillance" value: sunlight color: #gamaorange marker: false style: line;
-				data "Confidence in justice" value: sunlight color: #blue marker: false style: line;
-			}
-		}*/
+		
 	}
 }
 
@@ -418,27 +451,58 @@ experiment Terrain_3D type:gui{
 	output{
 		
 		layout #split;
-		display main background:#black type:opengl{
+		display main background:#black type:opengl draw_env:false{
 			graphics "interaction_graph" {
 				if showInteractions{
 					loop person over: people{
+						float loc_x <- person.location.x;
+						float loc_y <- person.location.y;
+						cell tmp_cell <- cell({loc_x,loc_y});
+						float loc_z <- tmp_cell.grid_value;
+						point location_3d <- {loc_x,loc_y,loc_z};
 						loop connection over:person.social_circle{
-							draw curve(person.location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
-						} 
+							float loc2_x <- connection.location.x;
+							float loc2_y <- connection.location.y;
+							tmp_cell <- cell({loc2_x,loc2_y});
+							float loc2_z <- tmp_cell.grid_value;
+							point location2_3d <- {loc2_x,loc2_y,loc2_z};
+							draw curve(location_3d, location2_3d,1.0, 200, 90) color:rgb (79, 194, 210,100);
+						}
 					}
 				}
 			}
 			grid cell elevation:grid_value texture:terrain_texture triangulation:true refresh:false;
 			species building aspect:terrain refresh:false;
+			//species building_obj aspect:terrain;
 			species police_patrol aspect:terrain;
 			species people aspect:terrain;
-			overlay position: { 10, 10 } size: { 0.7,0.3 } background: # black border: #black rounded: true{
+			overlay position: { 0, 0 } size: { 435,600 } background: # black transparency: 0.5 border: #black {
                 float y <- 30#px;
-               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("SansSerif", 20, #flat);
-                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white font: font("SansSerif", 20, #flat);
-                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white font:font("SansSerif",20, #flat);
-                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white font:font("SansSerif",20, #flat);
-               /*draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
+               	draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0);
+                draw "People: " +  length(people) at: { 40#px, y + 10#px } color: #white;
+                draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, y + 30#px} color:#white;
+                draw "Sunlight: "+ sunlight at:{ 40#px, y + 50#px} color:#white;
+                draw "Age Range" color:#white at:{40#px,y+80#px} font:font("Arial",15,#bold);
+                draw circle(10) color:colors[1] at:{40#px, y + 100#px};
+                draw "(5,14]" color:#white at:{50#px,y+103#px};
+                draw circle(10) color:colors[2] at:{40#px, y + 120#px};
+                draw "(14,19]" color:#white at:{50#px,y+123#px};
+                draw circle(10) color:colors[3] at:{40#px, y + 140#px};
+                draw "(19,34]" color:#white at:{50#px,y+143#px};
+                draw circle(10) color:colors[4] at:{40#px, y + 160#px};
+                draw "(34,54]" color:#white at:{50#px,y+163#px};
+                draw circle(10) color:colors[5] at:{40#px, y + 180#px};
+                draw ">54" color:#white at:{50#px,y+183#px};
+                draw  "Social Circle" color:#white at:{40#px,y+210#px} font:font("Arial",15,#bold);
+                draw line({40#px,y+230#px},{65#px,y+230#px}) color:rgb (79, 194, 210,100) width:5;
+                draw "Family" color:#white at:{70#px,y+235#px};
+               /*	if age<=5{age_group<-0;}
+					else if age>5 and age<=14{age_group<-1;}
+					else if age>14 and age<=19{age_group<-2;}
+					else if age>19 and age<=34{age_group<-3;}
+					else if age>34 and age<=54{age_group<-4;}
+					else if age>54{age_group<-5;}
+                * draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
 				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
 				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
 				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
