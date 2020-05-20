@@ -1,6 +1,17 @@
 # CSL_Guadalajara
 Repository for the CityScope project related to Guadalajara Collaboration
 
+# Installation
+  - Clone this reposetory
+  - Download GAMA (compatible with GAMA 1.8) [here](https://gama-platform.github.io/download)
+  - Run GAMA, 
+  - Choose a new Workspace (this is a temporay folder used for computation)
+  - right click on User Models->Import->GAMA Project..
+  - Select SocialFabric_CS in the CSL_Guadalajara folder that you have clone
+
+
+# Context
+
 Fear prevents the use of public spaces, which can be attributed to the way cities are perceived and designed. Although there is a certain component of spatial determinism, it is ultimately defined by the relationship between the physical configuration of the space and the social use made of it as well as a confluence of political, economical and behavioural factors.  
 
 In the search to determine the patterns that highlights fear perception in public spaces, it is proposed as initial approach a mechanism to construct composite indicators, using multi-criteria analysis and ranked weights, which is based in the scrutiny of literature linked to safer and more inclusive spaces between 1980 and 2020 with three different approaches; (1) environmental crimonology, system analysis and behavioural sciences, (2) urban planning and (3) architecture and social sciences. A branch of this last one addresses gender mainstreaming as a positive approach to cope with current global urban challenges, such as rapid urbanisation and migration.
