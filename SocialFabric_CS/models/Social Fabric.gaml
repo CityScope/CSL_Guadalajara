@@ -17,6 +17,7 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
+	int agent_mode parameter: "Perception mode" category: "Visualization" <- -1;
 	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
 	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
 	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0;
@@ -186,6 +187,7 @@ species building_obj{
 	}
 }
 species building {
+	//show some important buildings
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	aspect flat{
 		draw shape color:rgb (145,145,145) depth:rnd(40);
@@ -207,6 +209,7 @@ species people skills:[moving] parallel:true{
 
 	map<string,float> indicators_values;  	//indicator->value
 	map<string,float> indicators_weights; 	//indicator->weight
+	list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","pavement_condition"];
 	float safety_perception <- 0.0;			//Value of perception of security
 	float vision_radius <- 30.0#m;			//Size of the circle of co-presence
 	list<people> social_circle <- [];		//List of other people this aget relates with
@@ -222,6 +225,7 @@ species people skills:[moving] parallel:true{
 	int age <- rnd(80);						//Age of this agent
 	int age_group;
 	rgb agent_color;
+	rgb family_color;
 	list<string> preferences; 				//EXPERIMENTAL FOR NETWORK ANALYSIS: People interact and make relationships with people according to an affinity value, which is obtained from preferences. (Read Yuan et al)
 	
 	init{
@@ -230,6 +234,7 @@ species people skills:[moving] parallel:true{
 			"lighting_uniformity_radius"::0.25,
 			"pavement_condition"::0.1,
 			"other_people"::0.4];
+		
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
 		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
 		add "school"::places[rnd(length(places)-1)].location to: locations;			//School location
@@ -247,6 +252,9 @@ species people skills:[moving] parallel:true{
 	action init_social_circle{
 		list<people> auxList <- people at_distance(vision_radius);
 		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
+	}
+	action init_family_colors{
+		
 	}
 	action update_perception_value{
 		if sunlight>0 and vision_radius<60#m{
@@ -322,8 +330,18 @@ species people skills:[moving] parallel:true{
 		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
 	aspect flat{
-		draw circle((1-safety_perception)*10) color: colors[age_group] at:location;
-		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,100) at:location empty:true;}
+		rgb current_color;
+		
+		if agent_mode = -1 {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
+		else if agent_mode = 4{current_color <- colors[age_group];}
+		else {
+			float current_parameter;
+			current_parameter <- indicators_values[indicators[agent_mode]];
+			current_color <- rgb(255-(255*current_parameter),255*current_parameter,0);
+		}
+		//draw circle((1-current_parameter)*10) color: colors[age_group] at:location;
+		draw circle(5) color: current_color at:location;
+		if showPerception{draw circle(vision_radius) color:current_color at:location empty:true;}
 		if showInteractions{
 			loop connection over:social_circle{
 				draw curve(location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
@@ -381,10 +399,10 @@ species crime{
 	string type;
 }
 
-experiment Flat_2D type:gui{
+experiment Flat_2D type:gui {
 	output{
 		layout #split;
-		display "Main" type: opengl {
+		display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
 			graphics "world" refresh:false{
 				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
 			}
@@ -408,14 +426,14 @@ experiment Flat_2D type:gui{
 				draw "(34,54]" color:#white at:{50#px,255#px} font:font("Arial",20,#plain);
 				draw circle(10) color:colors[5] at:{40#px, 280#px};
 				draw ">54" color:#white at:{50#px,285#px} font:font("Arial",20,#plain);
-				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",25,#bold);
+				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",23,#bold);
 				draw line({40#px,345#px},{65#px,345#px}) color:rgb (79, 194, 210,100) width:5;
-				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",20,#plain);
-				draw  "Safety" color:#white at:{40#px,385#px} font:font("Arial",25,#bold);
+				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",19,#plain);
+				draw  "Safety" color:#white at:{40#px,385#px} font:font("Arial",22,#bold);
 				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,420#px};
 				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{55#px,420#px};
 				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{65#px,420#px};
-				draw "Perception" color:#white at:{75#px,425#px} font:font("Arial",20,#bold);
+				draw "Perception" color:#white at:{75#px,425#px} font:font("Arial",19,#bold);
                /*	if age<=5{age_group<-0;}
 					else if age>5 and age<=14{age_group<-1;}
 					else if age>14 and age<=19{age_group<-2;}
