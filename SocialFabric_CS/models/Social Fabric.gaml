@@ -17,15 +17,15 @@ global torus:false{
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
 	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
-	int agent_mode parameter: "Perception mode" category: "Visualization" <- -1;
-	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
-	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
-	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0;
-	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
-	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
-	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
+	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Lighting","Street condition","Natural surveillance", "Age range"];
+//	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
+//	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
+//	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0;
+//	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
+//	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
+//	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
 	//people related parameters
-	int nb_people <- 1000;
+	int nb_people <- 1200;
 	list<rgb> colors <- [rgb(218, 210, 69,255),rgb(228, 167, 39,255),rgb(34, 74, 193,255),rgb(204, 43, 107,255),rgb(17, 183, 34,255),rgb(40, 244, 230,255),#red];
 	
 	//SUNLIGHT
@@ -69,7 +69,7 @@ global torus:false{
 		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), road_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
 		create road from:roads_file with:[road_id::int(read("CVEVIAL"))];
 		create building from:buildings_file;
-		create building_obj;
+		//create building_obj;
 		create places from:denue_file;
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
@@ -167,7 +167,10 @@ species block_front{
 		int sum <- int_lightning + int_paving + int_sideWalk + int_access;
 		valuation <- sum / 4;  
 	}
-	aspect default{	draw shape color: rgb(255-(127*int_lightning),0+(127*int_lightning),50,255); }
+	aspect default{	
+		//draw shape color: rgb(255-(127*int_lightning),0+(127*int_lightning),50,255);
+		draw shape color: rgb (83, 83, 83,125);
+	}
 }
 
 species places{
@@ -177,20 +180,20 @@ species places{
 		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo;
 	}
 }
-species building_obj{
-	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
-	aspect terrain{
-		float loc_x <- location.x;
-		float loc_y <- location.y;
-		float loc_z <- location.z;
-		draw shape color:rgb (128, 128, 128,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z};
-	}
-}
+//species building_obj{
+//	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
+//	aspect terrain{
+//		float loc_x <- location.x;
+//		float loc_y <- location.y;
+//		float loc_z <- location.z;
+//		draw shape color:rgb (128, 128, 128,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z};
+//	}
+//}
 species building {
 	//show some important buildings
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	aspect flat{
-		draw shape color:rgb (145,145,145) depth:rnd(40);
+		draw shape color:rgb (145,145,145) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")];
 	}
 	aspect terrain{
 		//draw shape at:{buildings_x,buildings_y,buildings_z} color:rgb (79, 176, 98,255);
@@ -209,10 +212,11 @@ species people skills:[moving] parallel:true{
 
 	map<string,float> indicators_values;  	//indicator->value
 	map<string,float> indicators_weights; 	//indicator->weight
-	list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","pavement_condition"];
+	list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","other_people"];
 	float safety_perception <- 0.0;			//Value of perception of security
 	float vision_radius <- 30.0#m;			//Size of the circle of co-presence
 	list<people> social_circle <- [];		//List of other people this aget relates with
+	list<people> family <- [];
 
 	//Routine related variables
 	map<string,point> locations;				//A map containing the locations and their coordinates
@@ -221,12 +225,27 @@ species people skills:[moving] parallel:true{
 	string current_state <- "stay";				//Wheter this agent is onTheWay or stay
 	
 	//personal variables
+	point location_3d <- {location.x,location.y,location.z};
 	string occupation;						//The role of this agent
 	int age <- rnd(80);						//Age of this agent
 	int age_group;
 	rgb agent_color;
 	rgb family_color;
 	list<string> preferences; 				//EXPERIMENTAL FOR NETWORK ANALYSIS: People interact and make relationships with people according to an affinity value, which is obtained from preferences. (Read Yuan et al)
+	
+	//Visualization variables
+	bool show_social_graph <- false;
+	bool show_family <- false;
+	
+	user_command "Show Social Graph"{
+		show_social_graph <- true;
+	}
+	user_command "Show Family"{
+		do show_family;
+		ask social_circle{
+			show_family <- myself.show_family;
+		}
+	}
 	
 	init{
 		indicators_weights <- [													//How important is each indicator for this agent. All of them sum 1.
@@ -253,8 +272,9 @@ species people skills:[moving] parallel:true{
 		list<people> auxList <- people at_distance(vision_radius);
 		add all:auxList to:social_circle;										//Init of social circle as all people at "vision_radius" distance
 	}
-	action init_family_colors{
-		
+	action show_family{
+		if show_family{show_family <- false;}
+		else{show_family <- true;}
 	}
 	action update_perception_value{
 		if sunlight>0 and vision_radius<60#m{
@@ -329,33 +349,89 @@ species people skills:[moving] parallel:true{
 		if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
 		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
+	reflex update_elevation{
+		cell tmp_cell <- cell(location);
+		location_3d <- {location.x,location.y,tmp_cell.grid_value}; 
+	}
 	aspect flat{
 		rgb current_color;
-		
-		if agent_mode = -1 {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
-		else if agent_mode = 4{current_color <- colors[age_group];}
-		else {
-			float current_parameter;
-			current_parameter <- indicators_values[indicators[agent_mode]];
-			current_color <- rgb(255-(255*current_parameter),255*current_parameter,0);
+		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
+		//list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","other_people"];
+		if agent_mode = "Overall perception" {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
+		else if agent_mode = "Police" {
+			float color_value <- indicators_values["police_patrols"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
 		}
-		//draw circle((1-current_parameter)*10) color: colors[age_group] at:location;
-		draw circle(5) color: current_color at:location;
-		if showPerception{draw circle(vision_radius) color:current_color at:location empty:true;}
+		else if agent_mode = "Lighting" {
+			float color_value <- indicators_values["lighting_uniformity_radius"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Street condition" {
+			float color_value <- indicators_values["pavement_condition"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Natural surveillance" {
+			float color_value <- indicators_values["other_people"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Age range"{current_color <- colors[age_group];}
+		draw circle(3) color: current_color at:location;
+		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,0) at:location empty:true;}
 		if showInteractions{
 			loop connection over:social_circle{
 				draw curve(location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
 			}
 		}
+		if show_social_graph{
+			loop connection over:social_circle{
+				draw curve(location, connection.location,1.0, 200, 90) color:rgb (255, 128, 0,255) width:3.0;
+			}
+		}
+		if show_family{
+			loop connection over:social_circle{
+				draw curve(location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100) width:3.0;
+			}
+		}
 	}
 	aspect terrain{
-		float loc_x <- location.x;
-		float loc_y <- location.y;
-		cell tmp_cell <- cell({loc_x,loc_y});
-		float loc_z <- tmp_cell.grid_value;
-		point location_3d <- {loc_x,loc_y,loc_z};
-		draw circle(1.0) color: colors[age_group] at:location_3d;
+		rgb current_color;
+		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
+		//list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","other_people"];
+		if agent_mode = "Overall perception" {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
+		else if agent_mode = "Police" {
+			float color_value <- indicators_values["police_patrols"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Lighting" {
+			float color_value <- indicators_values["lighting_uniformity_radius"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Street condition" {
+			float color_value <- indicators_values["pavement_condition"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Natural surveillance" {
+			float color_value <- indicators_values["other_people"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Age range"{current_color <- colors[age_group];}
+		draw sphere(3) color: current_color at:location_3d;
 		if(showPerception){draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,100) at:location_3d empty:true;}
+		if showInteractions{
+			loop connection over:social_circle{
+				draw curve(location_3d, connection.location_3d,1.0, 200, 90) color:rgb (79, 194, 210,100) width:3.0;
+			}
+		}
+		if show_social_graph{
+			loop connection over:social_circle{
+				draw curve(location_3d, connection.location_3d,1.0, 200, 90) color:rgb (255, 128, 0,255) width:3.0;
+			}
+		}
+		if show_family{
+			loop connection over:social_circle{
+				draw curve(location_3d, connection.location_3d,1.0, 200, 90) color:rgb (79, 194, 210,100) width:3.0;
+			}
+		}
 	}
 }
 
@@ -402,18 +478,24 @@ species crime{
 experiment Flat_2D type:gui {
 	output{
 		layout #split;
-		display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
+		//display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
+		display "Main" type: opengl draw_env:false{
 			graphics "world" refresh:false{
 				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
 			}
+			//species road aspect:default;
+			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
-			species building aspect:flat refresh:false;
+			//species building aspect:flat refresh:false;
 			species people aspect:flat;
 			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
+				string minutes;
+				if current_date.minute < 10{minutes <- "0"+current_date.minute; }
+				else {minutes <- string(current_date.minute);}
 				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",20,#plain);
-				//draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {1000#px,1000#px} color:rgb(0,0,0,0) font:font("Arial",25,#bold);
-				draw "People: " +  length(people) at: { 40#px, 40#px } color: #white font:font("Arial",20,#plain);
-				draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, 65#px} color:#white font:font("Arial",20,#plain);
+				draw ":0123456789" at:{ 0#px, 0#px} color:rgb(0,0,0,0) font:font("Arial",55,#bold);
+				draw "People: " +  length(people) at: { 40#px, 60#px } color: #white font:font("Arial",20,#plain);
+				draw ""+current_date.hour+":"+minutes at:{ 40#px, 800#px} color:#white font:font("Arial",55,#bold);
 				draw "Sunlight: "+ sunlight at:{ 40#px, 90#px} color:#white font:font("Arial",20,#plain);
 				draw "Age Range" color:#white at:{40#px,130#px} font:font("Arial",25,#bold);
 				draw circle(10) color:colors[1] at:{40#px, 160#px};
@@ -428,23 +510,14 @@ experiment Flat_2D type:gui {
 				draw ">54" color:#white at:{50#px,285#px} font:font("Arial",20,#plain);
 				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",23,#bold);
 				draw line({40#px,345#px},{65#px,345#px}) color:rgb (79, 194, 210,100) width:5;
-				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",19,#plain);
-				draw  "Safety" color:#white at:{40#px,385#px} font:font("Arial",22,#bold);
-				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,420#px};
-				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{55#px,420#px};
-				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{65#px,420#px};
-				draw "Perception" color:#white at:{75#px,425#px} font:font("Arial",19,#bold);
-               /*	if age<=5{age_group<-0;}
-					else if age>5 and age<=14{age_group<-1;}
-					else if age>14 and age<=19{age_group<-2;}
-					else if age>19 and age<=34{age_group<-3;}
-					else if age>34 and age<=54{age_group<-4;}
-					else if age>54{age_group<-5;}
-                * draw square(flux_node_size) color:#mediumseagreen at:{50#px, y+30#px};
-				draw "Flux I/O" at:{50+30#px, y+30#px}  color: #white font: font("SansSerif", 15);
-				draw square(flux_node_size) at:{50#px, y+60#px} color: rgb (232, 64, 126,255) border: #maroon;
-				draw "Interland" at:{50+30#px, y+60#px}  color: #white font: font("SansSerif", 15);
-				draw "Tejido Social" at:{600#px, 10#px} color: #white font: font("SansSerif", 25);*/
+				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",20,#plain);
+				draw line({40#px,375#px},{65#px,375#px}) color:rgb (255, 128, 0,255) width:5;
+				draw "Friends" color:#white at:{70#px,380#px} font:font("Arial",20,#plain);
+				draw  "Safety" color:#white at:{40#px,420#px} font:font("Arial",22,#bold);
+				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,450#px};
+				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{60#px,450#px};
+				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{75#px,450#px};
+				draw "Perception" color:#white at:{85#px,455#px} font:font("Arial",19,#bold);
             }
 		}
 		
@@ -452,9 +525,7 @@ experiment Flat_2D type:gui {
 }
 
 experiment Terrain_3D type:gui{
-	
 	output{
-		
 		layout #split;
 		display main background:#black type:opengl draw_env:false{
 			graphics "interaction_graph" {
@@ -481,11 +552,14 @@ experiment Terrain_3D type:gui{
 			//species building_obj aspect:terrain;
 			species police_patrol aspect:terrain;
 			species people aspect:terrain;
-			overlay position: { 0, 0 } size: { 435,600 } background: # black transparency: 0.5 border: #black {
+			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
+				string minutes;
+				if current_date.minute < 10{minutes <- "0"+current_date.minute; }
+				else {minutes <- string(current_date.minute);}
 				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",20,#plain);
-				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",25,#bold);
-				draw "People: " +  length(people) at: { 40#px, 40#px } color: #white font:font("Arial",20,#plain);
-				draw "Time: "+current_date.hour+":"+current_date.minute at:{ 40#px, 65#px} color:#white font:font("Arial",20,#plain);
+				draw ":0123456789" at:{ 0#px, 0#px} color:rgb(0,0,0,0) font:font("Arial",55,#bold);
+				draw "People: " +  length(people) at: { 40#px, 60#px } color: #white font:font("Arial",20,#plain);
+				draw ""+current_date.hour+":"+minutes at:{ 40#px, 800#px} color:#white font:font("Arial",55,#bold);
 				draw "Sunlight: "+ sunlight at:{ 40#px, 90#px} color:#white font:font("Arial",20,#plain);
 				draw "Age Range" color:#white at:{40#px,130#px} font:font("Arial",25,#bold);
 				draw circle(10) color:colors[1] at:{40#px, 160#px};
@@ -498,14 +572,16 @@ experiment Terrain_3D type:gui{
 				draw "(34,54]" color:#white at:{50#px,255#px} font:font("Arial",20,#plain);
 				draw circle(10) color:colors[5] at:{40#px, 280#px};
 				draw ">54" color:#white at:{50#px,285#px} font:font("Arial",20,#plain);
-				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",25,#bold);
+				draw  "Social Circle" color:#white at:{40#px,320#px} font:font("Arial",23,#bold);
 				draw line({40#px,345#px},{65#px,345#px}) color:rgb (79, 194, 210,100) width:5;
 				draw "Family" color:#white at:{70#px,350#px} font:font("Arial",20,#plain);
-				draw  "Safety" color:#white at:{40#px,385#px} font:font("Arial",25,#bold);
-				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,420#px};
-				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{55#px,420#px};
-				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{65#px,420#px};
-				draw "Perception" color:#white at:{75#px,425#px} font:font("Arial",20,#bold);
+				draw line({40#px,375#px},{65#px,375#px}) color:rgb (255, 128, 0,255) width:5;
+				draw "Friends" color:#white at:{70#px,380#px} font:font("Arial",20,#plain);
+				draw  "Safety" color:#white at:{40#px,420#px} font:font("Arial",22,#bold);
+				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,450#px};
+				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{60#px,450#px};
+				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{75#px,450#px};
+				draw "Perception" color:#white at:{85#px,455#px} font:font("Arial",19,#bold);
             }
 		}
 		
