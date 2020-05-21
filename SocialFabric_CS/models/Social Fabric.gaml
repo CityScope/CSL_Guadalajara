@@ -16,7 +16,8 @@ global torus:false{
 	bool showInteractions parameter: "Show interactions" category:"Model" <- false;
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
 	//Visualization parameters
-	bool showPerception parameter: "Show perception" category: "Visualization" <- false;
+	bool showBuildings parameter: "Buildings" category: "Visualization" <- false;
+	bool showPerception parameter: "Perception" category: "Visualization" <- false;
 	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Lighting","Street condition","Natural surveillance", "Age range"];
 //	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
 //	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
@@ -189,11 +190,12 @@ species places{
 //		draw shape color:rgb (128, 128, 128,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z};
 //	}
 //}
+
 species building {
 	//show some important buildings
 	//geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
 	aspect flat{
-		draw shape color:rgb (145,145,145) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")];
+		if showBuildings{draw shape color:rgb (145,145,145) texture:["/img/roof_top.jpg",("/img/texture"+int(rnd(9)+1)+".jpg")];}
 	}
 	aspect terrain{
 		//draw shape at:{buildings_x,buildings_y,buildings_z} color:rgb (79, 176, 98,255);
@@ -486,7 +488,7 @@ experiment Flat_2D type:gui {
 			//species road aspect:default;
 			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
-			//species building aspect:flat refresh:false;
+			species building aspect:flat refresh:false;
 			species people aspect:flat;
 			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
 				string minutes;
@@ -514,9 +516,9 @@ experiment Flat_2D type:gui {
 				draw line({40#px,375#px},{65#px,375#px}) color:rgb (255, 128, 0,255) width:5;
 				draw "Friends" color:#white at:{70#px,380#px} font:font("Arial",20,#plain);
 				draw  "Safety" color:#white at:{40#px,420#px} font:font("Arial",22,#bold);
-				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,450#px};
+				draw circle(10) color:rgb (0,255,0) width:2 empty:true at:{45#px,450#px};
 				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{60#px,450#px};
-				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{75#px,450#px};
+				draw circle(10) color:rgb (255,0,0) width:2 empty:true at:{75#px,450#px};
 				draw "Perception" color:#white at:{85#px,455#px} font:font("Arial",19,#bold);
             }
 		}
@@ -578,9 +580,9 @@ experiment Terrain_3D type:gui{
 				draw line({40#px,375#px},{65#px,375#px}) color:rgb (255, 128, 0,255) width:5;
 				draw "Friends" color:#white at:{70#px,380#px} font:font("Arial",20,#plain);
 				draw  "Safety" color:#white at:{40#px,420#px} font:font("Arial",22,#bold);
-				draw circle(10) color:rgb (0,255,100) width:2 empty:true at:{45#px,450#px};
+				draw circle(10) color:rgb (0,255,0) width:2 empty:true at:{45#px,450#px};
 				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{60#px,450#px};
-				draw circle(10) color:rgb (255,0,100) width:2 empty:true at:{75#px,450#px};
+				draw circle(10) color:rgb (255,0,0) width:2 empty:true at:{75#px,450#px};
 				draw "Perception" color:#white at:{85#px,455#px} font:font("Arial",19,#bold);
             }
 		}
