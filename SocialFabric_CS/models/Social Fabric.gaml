@@ -355,6 +355,9 @@ species people skills:[moving] parallel:true{
 		cell tmp_cell <- cell(location);
 		location_3d <- {location.x,location.y,tmp_cell.grid_value}; 
 	}
+	action update_location{
+		location <- {location.x,location.y,200};
+	}
 	aspect flat{
 		rgb current_color;
 		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
