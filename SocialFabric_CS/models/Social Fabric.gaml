@@ -19,6 +19,7 @@ global torus:false{
 	bool showBuildings parameter: "Buildings" category: "Visualization" <- false;
 	bool showPerception parameter: "Perception" category: "Visualization" <- false;
 	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Lighting","Street condition","Natural surveillance", "Age range"];
+	bool showOverallPerception parameter: "Perception on streets" category:"Visualization" <- true;
 //	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
 //	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
 //	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0;
@@ -26,7 +27,7 @@ global torus:false{
 //	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
 //	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
 	//people related parameters
-	int nb_people <- 1200;
+	int nb_people <- 1000;
 	list<rgb> colors <- [rgb(218, 210, 69,255),rgb(228, 167, 39,255),rgb(34, 74, 193,255),rgb(204, 43, 107,255),rgb(17, 183, 34,255),rgb(40, 244, 230,255),#red];
 	
 	//SUNLIGHT
@@ -45,6 +46,7 @@ global torus:false{
 	file block_fronts_file <- file("/gis/"+case_study+"/block_fronts.shp");
 	file crimes_file <- file("/gis/"+case_study+"/crimes.shp");
 	file denue_file <- file("/gis/"+case_study+"/denue.shp");
+	file commerce_file <- csv_file("/gis/"+case_study+"/comercios.csv",true);
 	geometry shape <- envelope(mask_file);
 	
 	init{
@@ -79,6 +81,13 @@ global torus:false{
 		create police_patrol number:5;
 		ask people{do init_social_circle;}
 		create crime from:crimes_file with:[type::string(read("DEL"))];
+		create commerce from: commerce_file with:[
+			commerce_name::string(get("name")),
+			description::string(get("description")),
+			longitude::float(get("longitude")),
+			latitude::float(get("latitude")),
+			altitude::float(get("altitude"))
+		];
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -166,11 +175,13 @@ species block_front{
 	action init_Valuation{
 		valuation <- 0.0;
 		int sum <- int_lightning + int_paving + int_sideWalk + int_access;
-		valuation <- sum / 4;  
+		valuation <- sum / 8;  
 	}
-	aspect default{	
-		//draw shape color: rgb(255-(127*int_lightning),0+(127*int_lightning),50,255);
-		draw shape color: rgb (83, 83, 83,125);
+	aspect default{
+		if showOverallPerception{
+			draw shape color: rgb(255-(255*valuation),0+(255*valuation),0,255);
+		}
+		else {draw shape color: rgb (83, 83, 83,125);}
 	}
 }
 
@@ -181,15 +192,17 @@ species places{
 		draw geometry:square(50#m)  color:rgb (86, 140, 158,255) border:#indigo;
 	}
 }
-//species building_obj{
-//	geometry shape <- obj_file("/gis/"+case_study+"/buildings_obj.obj") as geometry;
-//	aspect terrain{
-//		float loc_x <- location.x;
-//		float loc_y <- location.y;
-//		float loc_z <- location.z;
-//		draw shape color:rgb (128, 128, 128,255) at:{loc_x+buildings_x,loc_y+buildings_y,loc_z+buildings_z};
-//	}
-//}
+
+species commerce{
+	string commerce_name;
+	string description;
+	float longitude;
+	float latitude;
+	float altitude;
+	aspect default{
+		draw circle(10) color:rgb (134, 217, 11,255) empty:true depth:10.0;
+	}
+}
 
 species building {
 	//show some important buildings
@@ -478,6 +491,9 @@ grid cell file:grid_data{
 
 species crime{
 	string type;
+	aspect default{
+		draw circle(30) color:#red empty:true width:5.0;
+	}
 }
 
 experiment Flat_2D type:gui {
@@ -489,6 +505,9 @@ experiment Flat_2D type:gui {
 				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
 			}
 			//species road aspect:default;
+			species crime aspect:default refresh:false;
+			//species commerce aspect:default refresh:false;
+			//species places aspect:default refresh:false;
 			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
 			species building aspect:flat refresh:false;
