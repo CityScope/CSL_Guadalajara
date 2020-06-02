@@ -87,7 +87,9 @@ global torus:false{
 			longitude::float(get("longitude")),
 			latitude::float(get("latitude")),
 			altitude::float(get("altitude"))
-		];
+		]{
+			location <- {latitude,longitude};
+		}
 	}
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
@@ -505,8 +507,8 @@ experiment Flat_2D type:gui {
 				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
 			}
 			//species road aspect:default;
-			species crime aspect:default refresh:false;
-			//species commerce aspect:default refresh:false;
+			//species crime aspect:default refresh:false;
+			species commerce aspect:default refresh:false;
 			//species places aspect:default refresh:false;
 			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
