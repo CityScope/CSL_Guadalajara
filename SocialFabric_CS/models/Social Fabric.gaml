@@ -17,7 +17,7 @@ global torus:false{
 	//Visualization parameters
 	bool showBuildings parameter: "Buildings" category: "Visualization" <- false;
 	bool showPerception parameter: "Perception" category: "Visualization" <- false;
-	string agent_mode parameter: "Indicator" category: "Visualization" <- "Layers" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation", "Age range", "Layers"];
+	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation","Social cohesion","Anti-social behavior","Age range", "Layers"];
 	bool showOverallPerception parameter: "Perception on streets" category:"Visualization" <- false;
 //	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
 //	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
@@ -264,7 +264,7 @@ species people skills:[moving] parallel:true{
 
 	map<string,float> indicators_values;  	//indicator->value
 	map<string,float> indicators_weights; 	//indicator->weight
-	list indicators <- ["police_patrols","other_people","lighting_uniformity_radius","safe_mobility","pavement_condition","physical_isolation"];
+	list indicators <- ["police_patrols","other_people","lighting_uniformity_radius","safe_mobility","pavement_condition","physical_isolation","social_cohesion","crimes"];
 	float safety_perception <- 0.0;			//Value of perception of security
 	float vision_radius <- 30.0#m;			//Size of the circle of co-presence
 	list<people> social_circle <- [];		//List of other people this aget relates with
@@ -304,11 +304,14 @@ species people skills:[moving] parallel:true{
 	init{
 		indicators_weights <- [													//How important is each indicator for this agent. All of them sum 1.
 			"police_patrols"::0.1,//C1
-			"other_people"::0.2,//C1
-			"lighting_uniformity_radius"::0.15,//C2
+			"other_people"::0.1,//C1
+			"lighting_uniformity_radius"::0.1,//C2
 			"safe_mobility"::0.1,//C3			
-			"pavement_condition"::0.15,//C4
-			"physical_isolation"::0.3];//C5
+			"pavement_condition"::0.1,//C4
+			"physical_isolation"::0.2,//C5
+			"social_cohesion"::0.2,
+			"crime"::0.1
+			];
 		
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
 		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
@@ -361,7 +364,7 @@ species people skills:[moving] parallel:true{
 			//3.Si no se conocen: W-M   Si se conocen: W-W
 		list<people> auxPeople <- people at_distance(vision_radius);
 		put auxPeople!=[]?1.0:0.0 at:"other_people" in:indicators_values;
-		do update_perception_value;
+		
 		
 		//C2__ARTIFICIAL LIGHTING
 		//lighting_uniformity_radius
@@ -385,6 +388,16 @@ species people skills:[moving] parallel:true{
 		list<places> auxPlaces <- places at_distance(vision_radius);
 		put auxPlaces!=[]?auxPlaces[0].isolation_value:1.0 at:"physical_isolation" in:indicators_values;
 		
+		//C7__SOCIAL COHESION
+		int counter <- 0;
+		loop element over:social_circle{if auxPeople contains element{counter <- counter + 1;}}
+		put social_circle!=[]?counter/length(social_circle):0.0 at:"social_cohesion" in:indicators_values;
+		
+		//C8__ANTI-SOCIAL BEHAVIOR
+		list<crime> auxCrime <- crime at_distance(vision_radius);
+		put auxCrime!=[]?1.0:0.0 at:"crimes" in:indicators_values;
+		
+		do update_perception_value;
 	}
 	reflex build_routine when:current_state="stay"{
 		if age_group=0{}
@@ -431,7 +444,7 @@ species people skills:[moving] parallel:true{
 		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
 		//list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","other_people"];
 		if agent_mode = "Layers"{
-			int nb_indicators <- 6;
+			int nb_indicators <- 8;
 			float color_value;
 			float elevation_rate <- 150.0; //meters by second of elevation
 			//This is for the formal surveillance layer
@@ -446,7 +459,12 @@ species people skills:[moving] parallel:true{
 			color_value <- indicators_values["pavement_condition"];
 			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*5};
 			color_value <- indicators_values["physical_isolation"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,current_max};
+			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*6};
+			color_value <- indicators_values["social_cohesion"];
+			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*7};
+			color_value <- indicators_values["crimes"];
+			draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value),0,255) at:{location.x,location.y,current_max};
+			
 		}
 		else{
 			if agent_mode = "Overall perception" {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
@@ -472,6 +490,14 @@ species people skills:[moving] parallel:true{
 			}
 			else if agent_mode = "Physical isolation" {
 				float color_value <- indicators_values["physical_isolation"];
+				current_color <- rgb(255*color_value,255-(255*color_value),0);
+			}
+			else if agent_mode = "Social cohesion" {
+				float color_value <- indicators_values["physical_isolation"];
+				current_color <- rgb(255-(255*color_value),255*color_value,0);
+			}
+			else if agent_mode = "Anti-social behavior" {
+				float color_value <- indicators_values["crimes"];
 				current_color <- rgb(255*color_value,255-(255*color_value),0);
 			}
 			else if agent_mode = "Age range"{current_color <- colors[age_group];}
@@ -576,7 +602,7 @@ grid cell file:grid_data{
 species crime{
 	string type;
 	aspect default{
-		draw circle(30) color:#red empty:true width:5.0;
+		draw circle(30) color:#red empty:true width:1.0;
 	}
 }
 
