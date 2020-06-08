@@ -27,7 +27,7 @@ global torus:false{
 //	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
 	//people related parameters
 	int nb_people <- 800;
-	int agent_size <- 3;
+	int agent_size <- 10;
 	list<rgb> colors <- [rgb(218, 210, 69,255),rgb(228, 167, 39,255),rgb(34, 74, 193,255),rgb(204, 43, 107,255),rgb(17, 183, 34,255),rgb(40, 244, 230,255),#red];
 	
 	//SUNLIGHT
@@ -288,7 +288,7 @@ species people skills:[moving] parallel:true{
 	//Visualization variables
 	bool show_social_graph <- false;
 	bool show_family <- false;
-	float max_elevation <- 1000.0;
+	float max_elevation <- 1500.0;
 	float current_max <- 0.0;
 	
 	user_command "Show Social Graph"{
@@ -312,6 +312,17 @@ species people skills:[moving] parallel:true{
 			"social_cohesion"::0.2,
 			"crime"::0.1
 			];
+		float init_value <- 1.0;
+		indicators_values <- [													//How important is each indicator for this agent. All of them sum 1.
+			"police_patrols"::init_value,//C1
+			"other_people"::init_value,//C1
+			"lighting_uniformity_radius"::init_value,//C2
+			"safe_mobility"::init_value,//C3			
+			"pavement_condition"::init_value,//C4
+			"physical_isolation"::init_value,//C5
+			"social_cohesion"::init_value,
+			"crime"::init_value
+			];
 		
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
 		add "home"::building[rnd(length(building)-1)].location to: locations;			//Home location
@@ -326,6 +337,18 @@ species people skills:[moving] parallel:true{
 		else if age>19 and age<=34{age_group<-3;}
 		else if age>34 and age<=54{age_group<-4;}
 		else if age>54{age_group<-5;}
+	}
+	reflex init when:cycle=1{
+		indicators_values <- [													//How important is each indicator for this agent. All of them sum 1.
+			"police_patrols"::0.0,//C1
+			"other_people"::0.0,//C1
+			"lighting_uniformity_radius"::0.0,//C2
+			"safe_mobility"::0.0,//C3			
+			"pavement_condition"::0.0,//C4
+			"physical_isolation"::0.0,//C5
+			"social_cohesion"::0.0,
+			"crime"::0.0
+		];
 	}
 	action init_social_circle{
 		list<people> auxList <- people at_distance(vision_radius);
@@ -436,73 +459,113 @@ species people skills:[moving] parallel:true{
 	action update_location{
 		location <- {location.x,location.y,200};
 	}
-	reflex update_flat_elevation when:current_max < max_elevation and agent_mode = "layers"{
+	reflex update_flat_elevation when:current_max < max_elevation{
 		current_max <- current_max + 10.0;
 	}
+	aspect layers{
+		int nb_indicators <- 8;
+		float color_value;
+		float elevation_rate <- 150.0; //meters by second of elevation
+		//This is for the formal surveillance layer
+		color_value <- indicators_values["police_patrols"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,current_max/nb_indicators};
+		color_value <- indicators_values["other_people"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*2};
+		color_value <- indicators_values["lighting_uniformity_radius"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*3};
+		color_value <- indicators_values["public_transportation"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*4};
+		color_value <- indicators_values["pavement_condition"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*5};
+		color_value <- indicators_values["physical_isolation"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*6};
+		color_value <- indicators_values["social_cohesion"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*7};
+		color_value <- indicators_values["crimes"];
+		draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value),0,255) at:{location.x,location.y,current_max};
+	}
+	
+	aspect indicator1{
+		float color_value;
+		color_value <- indicators_values["police_patrols"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator2{
+		float color_value;
+		color_value <- indicators_values["other_people"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator3{
+		float color_value;
+		color_value <- indicators_values["lighting_uniformity_radius"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator4{
+		float color_value;
+		color_value <- indicators_values["public_transportation"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator5{
+		float color_value;
+		color_value <- indicators_values["pavement_condition"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator6{
+		float color_value;
+		color_value <- indicators_values["physical_isolation"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator7{
+		float color_value;
+		color_value <- indicators_values["social_cohesion"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+	}
+	aspect indicator8{
+		float color_value;
+		color_value <- indicators_values["crimes"];
+		draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value),0,255);
+	}
+	
 	aspect flat{
 		rgb current_color;
 		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
 		//list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","other_people"];
-		if agent_mode = "Layers"{
-			int nb_indicators <- 8;
-			float color_value;
-			float elevation_rate <- 150.0; //meters by second of elevation
-			//This is for the formal surveillance layer
-			color_value <- indicators_values["police_patrols"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,current_max/nb_indicators};
-			color_value <- indicators_values["other_people"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*2};
-			color_value <- indicators_values["lighting_uniformity_radius"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*3};
-			color_value <- indicators_values["public_transportation"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*4};
-			color_value <- indicators_values["pavement_condition"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*5};
-			color_value <- indicators_values["physical_isolation"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*6};
-			color_value <- indicators_values["social_cohesion"];
-			draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*7};
-			color_value <- indicators_values["crimes"];
-			draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value),0,255) at:{location.x,location.y,current_max};
-			
+		if agent_mode = "Overall perception" {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
+		else if agent_mode = "Police" {
+			float color_value <- indicators_values["police_patrols"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
 		}
-		else{
-			if agent_mode = "Overall perception" {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
-			else if agent_mode = "Police" {
-				float color_value <- indicators_values["police_patrols"];
-				current_color <- rgb(255-(255*color_value),255*color_value,0);
-			}
-			else if agent_mode = "Natural surveillance" {
-				float color_value <- indicators_values["other_people"];
-				current_color <- rgb(255-(255*color_value),255*color_value,0);
-			}
-			else if agent_mode = "Lighting" {
-				float color_value <- indicators_values["lighting_uniformity_radius"];
-				current_color <- rgb(255-(255*color_value),255*color_value,0);
-			}
-			else if agent_mode = "Public transportation" {
-				float color_value <- indicators_values["public_transportation"];
-				current_color <- rgb(255-(255*color_value),255*color_value,0);
-			}
-			else if agent_mode = "Street condition" {
-				float color_value <- indicators_values["pavement_condition"];
-				current_color <- rgb(255-(255*color_value),255*color_value,0);
-			}
-			else if agent_mode = "Physical isolation" {
-				float color_value <- indicators_values["physical_isolation"];
-				current_color <- rgb(255*color_value,255-(255*color_value),0);
-			}
-			else if agent_mode = "Social cohesion" {
-				float color_value <- indicators_values["physical_isolation"];
-				current_color <- rgb(255-(255*color_value),255*color_value,0);
-			}
-			else if agent_mode = "Anti-social behavior" {
-				float color_value <- indicators_values["crimes"];
-				current_color <- rgb(255*color_value,255-(255*color_value),0);
-			}
-			else if agent_mode = "Age range"{current_color <- colors[age_group];}
-			draw circle(agent_size) color: current_color at:location;
+		else if agent_mode = "Natural surveillance" {
+			float color_value <- indicators_values["other_people"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
 		}
+		else if agent_mode = "Lighting" {
+			float color_value <- indicators_values["lighting_uniformity_radius"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Public transportation" {
+			float color_value <- indicators_values["public_transportation"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Street condition" {
+			float color_value <- indicators_values["pavement_condition"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Physical isolation" {
+			float color_value <- indicators_values["physical_isolation"];
+			current_color <- rgb(255*color_value,255-(255*color_value),0);
+		}
+		else if agent_mode = "Social cohesion" {
+			float color_value <- indicators_values["physical_isolation"];
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
+		}
+		else if agent_mode = "Anti-social behavior" {
+			float color_value <- indicators_values["crimes"];
+			current_color <- rgb(255*color_value,255-(255*color_value),0);
+		}
+		else if agent_mode = "Age range"{current_color <- colors[age_group];}
+		draw circle(agent_size) color: current_color at:location;
+		
 		
 		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,0) at:location empty:true;}
 		if showInteractions{
@@ -521,6 +584,7 @@ species people skills:[moving] parallel:true{
 			}
 		}
 	}
+	
 	aspect terrain{
 		rgb current_color;
 		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
@@ -657,7 +721,72 @@ experiment Flat_2D type:gui {
 				draw "Perception" color:#white at:{85#px,455#px} font:font("Arial",19,#bold);
             }
 		}
-		
+		/*display "chart" type: java2D
+		{
+			//"police_patrols","other_people","lighting_uniformity_radius","safe_mobility","pavement_condition","physical_isolation","social_cohesion","crimes"
+			chart "Indicators of perception" title_font:"arial" title_font_size:24 legend_font:"arial" legend_font_size:18 label_font:"arial" color:#white background:#black type: radar x_serie_labels: ["Formal surveillance", "Natural surveillance", "Visibility", "Safe mobility", "Physical disorder", "Physical isolation", "Social cohesion", "Anti-social behavior"] series_label_position: xaxis
+			{
+				float added <- 0.0;
+				data "Perception" value: [
+					added+agent_to_follow.indicators_values["police_patrols"],
+					added+agent_to_follow.indicators_values["other_people"],
+					added+agent_to_follow.indicators_values["lighting_uniformity_radius"],
+					added+agent_to_follow.indicators_values["safe_mobility"],
+					added+agent_to_follow.indicators_values["pavement_condition"],
+					added+agent_to_follow.indicators_values["physical_isolation"],
+					added+agent_to_follow.indicators_values["social_cohesion"],
+					added+agent_to_follow.indicators_values["crimes"]
+				] color: # white;
+			}
+
+		}*/
+	}
+}
+
+experiment Flat_2D_split type:gui {
+	output{
+		layout #split;
+		/*"police_patrols"::0.0,//C1
+			"other_people"::0.0,//C1
+			"lighting_uniformity_radius"::0.0,//C2
+			"safe_mobility"::0.0,//C3			
+			"pavement_condition"::0.0,//C4
+			"physical_isolation"::0.0,//C5
+			"social_cohesion"::0.0,
+			"crime"::0.0*/
+		display "Formal surveillance" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species police_patrol aspect:flat_obj;
+			species people aspect:indicator1;	
+		}
+		display "Natural surveillance" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator2;	
+		}
+		display "Artificial lighting" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator3;	
+		}
+		display "Safe mobility" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator4;	
+		}
+		display "Maintainance" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator5;	
+		}
+		display "Physical isolation" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator6;	
+		}
+		display "Social cohesion" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator7;	
+		}
+		display "Anti-social behavior" type: opengl draw_env:false{
+			species block_front aspect:default refresh:false;
+			species people aspect:indicator8;	
+		}
 	}
 }
 
@@ -689,10 +818,10 @@ experiment Flat_2D_Moving type:gui {
 		layout #split;
 		//display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
 		//display "Main" type: opengl draw_env:false camera_pos: {world.shape.width*cos(cycle),world.shape.height*sin(cycle),1328.5421} camera_look_pos: {world.shape.width/2,world.shape.height/2,500} camera_up_vector: {0,1,0} {
-		display "Main" type: opengl draw_env:false camera_pos: {2*world.shape.width*cos(cycle)+world.shape.width/2,2*world.shape.width*sin(cycle)+world.shape.width/2,1500} camera_look_pos: {world.shape.width/2,world.shape.height/2,0} camera_up_vector: {0,1,0} {
+		display "Main" type: opengl draw_env:false camera_pos: {2.5*world.shape.width*cos(cycle/3)+world.shape.width/2,2.5*world.shape.width*sin(cycle/3)+world.shape.width/2,1500} camera_look_pos: {world.shape.width/2,world.shape.height/2,1000} camera_up_vector: {0,1,0} {
 			
 			graphics "world" refresh:false{
-				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
+				draw rectangle(world.shape.width,world.shape.height) empty:true color:#gray;
 			}
 			//species road aspect:default;
 			//species crime aspect:default refresh:false;
@@ -700,8 +829,8 @@ experiment Flat_2D_Moving type:gui {
 			//species places aspect:default refresh:false;
 			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
-			species building aspect:flat refresh:false;
-			species people aspect:flat;
+			//species building aspect:flat refresh:false;
+			species people aspect:layers;
 			/*overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
 				string minutes;
 				if current_date.minute < 10{minutes <- "0"+current_date.minute; }
