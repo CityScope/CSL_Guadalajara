@@ -17,6 +17,7 @@ global torus:false{
 	//Visualization parameters
 	bool showBuildings parameter: "Buildings" category: "Visualization" <- false;
 	bool showPerception parameter: "Perception" category: "Visualization" <- false;
+	bool showEncounters parameter: "Encounters" category: "Visualization" <- false;
 	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation","Social cohesion","Anti-social behavior","Age range", "Layers"];
 	bool showOverallPerception parameter: "Perception on streets" category:"Visualization" <- false;
 //	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
@@ -27,7 +28,8 @@ global torus:false{
 //	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
 	//people related parameters
 	int nb_people <- 800;
-	int agent_size <- 10;
+	int agent_size <- 6;
+	int people_encountered <- 0 update: length(people where (length(each.encounters)>0));
 	list<rgb> colors <- [rgb(218, 210, 69,255),rgb(228, 167, 39,255),rgb(34, 74, 193,255),rgb(204, 43, 107,255),rgb(17, 183, 34,255),rgb(40, 244, 230,255),#red];
 	
 	//SUNLIGHT
@@ -60,8 +62,11 @@ global torus:false{
 	file public_transportation_file <- file("/gis/"+case_study+"/public_transportation.shp");
 	geometry shape <- envelope(mask_file);
 	
+	//Heatmap
+	list<heatmap> enabled_cells <- [];
+	
 	init{
-		step <- 10#s;
+		step <- 30#s;
 		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
 			if str_lightning = "Todas las vialidades"{ int_lightning <- 2; }
 			else if str_lightning = "Alguna vialidad"{ int_lightning <- 1; }
@@ -81,7 +86,7 @@ global torus:false{
 			do updateValuation;
 		}
 		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), road_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
-		create road from:roads_file with:[road_id::int(read("CVEVIAL"))];
+		create road from:roads_file with:[road_id::int(read("CVEVIAL")),street_name::string(read("NOMVIAL"))];
 		create building from:buildings_file;
 		//create building_obj;
 		create places from:denue_file{do computePhysicalIsolation;}
@@ -106,7 +111,44 @@ global torus:false{
 			location <- {latitude,longitude};
 		}
 		create public_transportation from:public_transportation_file;
+		list<road> streets_of_interest <- road where(each.street_name="Camino a la Mesa");
+		ask streets_of_interest{
+			street_color <- #yellow;
+		}
+		loop street over:streets_of_interest{
+			list<heatmap> cells_to_add <- heatmap where(each overlaps street);
+			write "Cells to add: "+cells_to_add;
+			if cells_to_add != [] and cells_to_add!=nil{
+				loop heatmap_element over:cells_to_add{
+					add heatmap_element to:enabled_cells;
+				}		
+			}
+			write "Enabled cells:"+enabled_cells;
+		}
+		do cleanup;
 	}
+	
+	reflex update_heatmap when:every(30#seconds) {
+		ask enabled_cells{
+			do update_value;
+		}
+	}
+	
+	action cleanup{
+		mask_file <- nil; 
+		roads_file <- nil;
+		buildings_file <- nil;
+		terrain_texture <- nil;
+		grid_data <- nil;
+		blocks_file <- nil;
+		block_fronts_file <- nil;
+		crimes_file <- nil;
+		denue_file <- nil;
+		commerce_file <- nil;
+		public_transportation_file <- nil;
+		ask block{do die;}
+	}
+	
 	action mapValues{
 	//Information about roads condition is in block_fronts file, copy it to road species.
 		loop bf_element over:block_front{
@@ -123,7 +165,7 @@ global torus:false{
 			}
 		}
 	}
-	reflex update_camera_position{
+	action update_camera_position{
 		float agent_heading <- agent_to_follow.heading;
 		camera_position <- {camera_radius*cos(agent_heading)+agent_to_follow.location.x,camera_radius*sin(agent_heading)+agent_to_follow.location.y,camera_elevation};
 	}
@@ -131,20 +173,52 @@ global torus:false{
 
 species road{
 	int road_id;
+	string street_name;
 	float valuation;
 	float weight;
 	float float_lightning;
 	float float_paving;
 	float float_sideWalk;
 	float float_access;
+	rgb street_color;
+	init{
+		street_color <- #gray;
+	}
 	action init_condition{
 		valuation <- (float_lightning+float_paving+float_sideWalk+float_access)/4;
 		weight <- valuation; //Normalization of valuation 0 to 1 according to the model
 		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
 	}
-	aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50,255);}
+	aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50);}
 	//aspect default{draw shape color: rgb(255*weight,50,50,100);}
-	aspect white{draw shape color: #white;}
+	aspect street_of_interest{draw shape color: street_color;}
+}
+
+grid heatmap width:35 height:35{
+	float perception_value;
+	rgb cell_color;
+	list<people> people_inside <- [];
+	init{
+		perception_value <- 0.0;
+		cell_color <- rgb(0,0,0,0);
+	}
+	action update_value{
+		people_inside <- people where(each overlaps self);
+		if people_inside!=[] and people_inside!=nil{
+			float sum <- 0.0;
+			loop element over:people_inside{
+				sum <- sum + element.safety_perception;
+			}	
+			perception_value <- sum/length(people_inside);
+			cell_color <- rgb(255-(perception_value*255),255*perception_value,0,0.5);
+		}
+		else{
+			cell_color <- rgb(0,0,0,0);
+		}
+	}
+	aspect default{
+		draw shape color:cell_color;
+	}
 }
 
 species public_transportation{
@@ -257,6 +331,7 @@ species building {
 	}
 }
 
+
 species people skills:[moving] parallel:true{
 	
 	//Importar datos de csv para rutinas, relaciones, perfil.
@@ -269,6 +344,7 @@ species people skills:[moving] parallel:true{
 	float vision_radius <- 30.0#m;			//Size of the circle of co-presence
 	list<people> social_circle <- [];		//List of other people this aget relates with
 	list<people> family <- [];
+	list<people> encounters <- [];			//List of people encountered in the public space
 
 	//Routine related variables
 	map<string,point> locations;				//A map containing the locations and their coordinates
@@ -320,8 +396,8 @@ species people skills:[moving] parallel:true{
 			"safe_mobility"::init_value,//C3			
 			"pavement_condition"::init_value,//C4
 			"physical_isolation"::init_value,//C5
-			"social_cohesion"::init_value,
-			"crime"::init_value
+			"social_cohesion"::init_value,//C6
+			"crime"::init_value//C7
 			];
 		
 		occupation <- one_of("inactive","student","worker");							//Role of this agent
@@ -338,8 +414,8 @@ species people skills:[moving] parallel:true{
 		else if age>34 and age<=54{age_group<-4;}
 		else if age>54{age_group<-5;}
 	}
-	reflex init when:cycle=1{
-		indicators_values <- [													//How important is each indicator for this agent. All of them sum 1.
+	/*reflex init when:cycle=1{
+		indicators_values <- [													
 			"police_patrols"::0.0,//C1
 			"other_people"::0.0,//C1
 			"lighting_uniformity_radius"::0.0,//C2
@@ -349,6 +425,10 @@ species people skills:[moving] parallel:true{
 			"social_cohesion"::0.0,
 			"crime"::0.0
 		];
+	}*/
+	reflex update_encounters when:mod(cycle,6)=0 and flip(0.5){
+		encounters <- [];
+		if rnd(1) < safety_perception{encounters <- people at_distance(vision_radius);}
 	}
 	action init_social_circle{
 		list<people> auxList <- people at_distance(vision_radius);
@@ -368,7 +448,8 @@ species people skills:[moving] parallel:true{
 		}
 		safety_perception <- sum;
 	}
-	reflex update_indicators_values when:every(90#second) and flip(0.1){
+	reflex update_indicators_values when:every(3#minute) and flip(0.3){
+	//action update_indicators_values{	
 		//In this function, all environmental indicators are perceived by the agent. Only indicators_values are updated here.
 		//The importance of these indicators_values depends on every agent profile (women, men, child, etc.).
 		//Considerar la introducción de crimenes a lo largo del día considerando como entrada datos georreferenciados. Además estos tienen que clasificarse porque 
@@ -376,8 +457,14 @@ species people skills:[moving] parallel:true{
 		
 		//C1__FORMAL SURVEILLANCE
 		//police_patrols_range
-		list<police_patrol> auxPolice <- police_patrol at_distance(vision_radius);
-		put auxPolice!=[]? 1.0:0.0 at:"police_patrols" in:indicators_values;
+		list<police_patrol> auxPolice <- police_patrol at_distance(5*vision_radius);
+		if auxPolice != []{
+			police_patrol auxP <- auxPolice[0];
+			float distance <- self.location distance_to auxP.location;
+			float auxValue <- distance/(5*vision_radius);
+			put 1-auxValue at:"police_patrols" in:indicators_values;
+		}
+		else{put 0.0 at:"police_patrols" in:indicators_values;}
 		//active_pedestrians (interaction)
 			//1.número de personas que interactúan - Radio 1
 				// M+W+N+N    +  M
@@ -386,8 +473,13 @@ species people skills:[moving] parallel:true{
 			//2.si se conocen o no - Radio 2   (definir en la descripción de los agentes)
 			//3.Si no se conocen: W-M   Si se conocen: W-W
 		list<people> auxPeople <- people at_distance(vision_radius);
-		put auxPeople!=[]?1.0:0.0 at:"other_people" in:indicators_values;
-		
+		if auxPeople != []{
+			people auxAgent <- one_of(auxPeople);
+			float distance <- auxAgent distance_to(self);
+			float auxValue <- distance/vision_radius;
+			put 1-auxValue at:"other_people" in:indicators_values;
+		}
+		else{put 0.0 at:"other_people" in:indicators_values;}	
 		
 		//C2__ARTIFICIAL LIGHTING
 		//lighting_uniformity_radius
@@ -413,13 +505,19 @@ species people skills:[moving] parallel:true{
 		
 		//C7__SOCIAL COHESION
 		int counter <- 0;
-		loop element over:social_circle{if auxPeople contains element{counter <- counter + 1;}}
+		loop element over:social_circle{if element in encounters{counter <- counter + 1;}}
 		put social_circle!=[]?counter/length(social_circle):0.0 at:"social_cohesion" in:indicators_values;
 		
 		//C8__ANTI-SOCIAL BEHAVIOR
-		list<crime> auxCrime <- crime at_distance(vision_radius);
-		put auxCrime!=[]?1.0:0.0 at:"crimes" in:indicators_values;
+		list<crime> auxCrime <- crime at_distance(2*vision_radius);
+		if auxCrime != []{
+			float crime_distance <- one_of(auxCrime) distance_to(self);
+			float value <- crime_distance / (2*vision_radius);
+			put value at:"crime" in:indicators_values;
+		}
+		else {put 1.0 at:"crime" in:indicators_values;}
 		
+		//Update the overall value		
 		do update_perception_value;
 	}
 	reflex build_routine when:current_state="stay"{
@@ -448,7 +546,7 @@ species people skills:[moving] parallel:true{
 			if current_date.hour>8{current_objective <- locations["work"]; current_state <- "onTheWay";}
 		}
 	}
-	reflex execute_routine when:current_state="onTheWay" and mod(cycle,2)=0{
+	reflex execute_routine when:every(2#minute) and current_state="onTheWay" and flip(0.5){
 		if location = {current_objective.x,current_objective.y}{current_state <- "stay";}
 		do goto target:current_objective on:road_network move_weights:weight_map;
 	}
@@ -459,7 +557,7 @@ species people skills:[moving] parallel:true{
 	action update_location{
 		location <- {location.x,location.y,200};
 	}
-	reflex update_flat_elevation when:current_max < max_elevation{
+	reflex update_flat_elevation when:current_max < max_elevation and true=false{
 		current_max <- current_max + 10.0;
 	}
 	aspect layers{
@@ -468,9 +566,9 @@ species people skills:[moving] parallel:true{
 		float elevation_rate <- 150.0; //meters by second of elevation
 		//This is for the formal surveillance layer
 		color_value <- indicators_values["police_patrols"];
-		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,current_max/nb_indicators};
+		draw circle(agent_size) color: rgb(255-(255*color_value),255*color_value,0) at:{location.x,location.y,current_max/nb_indicators};
 		color_value <- indicators_values["other_people"];
-		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*2};
+		draw circle(agent_size) color: rgb(255*color_value, 255-(255*color_value),0) at:{location.x,location.y,(current_max/nb_indicators)*2};
 		color_value <- indicators_values["lighting_uniformity_radius"];
 		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*3};
 		color_value <- indicators_values["public_transportation"];
@@ -482,18 +580,18 @@ species people skills:[moving] parallel:true{
 		color_value <- indicators_values["social_cohesion"];
 		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255) at:{location.x,location.y,(current_max/nb_indicators)*7};
 		color_value <- indicators_values["crimes"];
-		draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value),0,255) at:{location.x,location.y,current_max};
+		draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value)) at:{location.x,location.y,current_max};
 	}
 	
 	aspect indicator1{
 		float color_value;
 		color_value <- indicators_values["police_patrols"];
-		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+		draw circle(agent_size) color: rgb(255-(255*color_value),255*color_value,0);
 	}
 	aspect indicator2{
 		float color_value;
 		color_value <- indicators_values["other_people"];
-		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+		draw circle(agent_size) color: rgb(255*color_value, 255-(255*color_value),0);
 	}
 	aspect indicator3{
 		float color_value;
@@ -518,26 +616,26 @@ species people skills:[moving] parallel:true{
 	aspect indicator7{
 		float color_value;
 		color_value <- indicators_values["social_cohesion"];
-		draw circle(agent_size) color: rgb(255-(255*color_value),0+(255*color_value),0,255);
+		draw circle(agent_size) color: rgb(255-(255*color_value),255*color_value,0);
 	}
 	aspect indicator8{
 		float color_value;
-		color_value <- indicators_values["crimes"];
-		draw circle(agent_size) color: rgb(255*color_value,255-(255*color_value),0,255);
+		color_value <- indicators_values["crime"];
+		draw circle(agent_size) color: rgb(255-(255*color_value),255*color_value,0);
 	}
 	
 	aspect flat{
 		rgb current_color;
 		//"Overall perception","Police","Lighting","Street condition","Natural surveillance"
 		//list indicators <- ["police_patrols","lighting_uniformity_radius","pavement_condition","other_people"];
-		if agent_mode = "Overall perception" {current_color <- rgb(255-(255*safety_perception),255*safety_perception,0);}
+		if agent_mode = "Overall perception" {current_color <- rgb(255-(255*float(safety_perception)),255*float(safety_perception),0);}
 		else if agent_mode = "Police" {
 			float color_value <- indicators_values["police_patrols"];
 			current_color <- rgb(255-(255*color_value),255*color_value,0);
 		}
 		else if agent_mode = "Natural surveillance" {
 			float color_value <- indicators_values["other_people"];
-			current_color <- rgb(255-(255*color_value),255*color_value,0);
+			current_color <- rgb(255*color_value, 255-(255*color_value),0);
 		}
 		else if agent_mode = "Lighting" {
 			float color_value <- indicators_values["lighting_uniformity_radius"];
@@ -556,17 +654,22 @@ species people skills:[moving] parallel:true{
 			current_color <- rgb(255*color_value,255-(255*color_value),0);
 		}
 		else if agent_mode = "Social cohesion" {
-			float color_value <- indicators_values["physical_isolation"];
+			float color_value <- indicators_values["social_cohesion"];
 			current_color <- rgb(255-(255*color_value),255*color_value,0);
 		}
 		else if agent_mode = "Anti-social behavior" {
-			float color_value <- indicators_values["crimes"];
-			current_color <- rgb(255*color_value,255-(255*color_value),0);
+			float color_value <- indicators_values["crime"];
+			write name+":"+color_value;
+			current_color <- rgb(255-(255*color_value),255*color_value,0);
 		}
 		else if agent_mode = "Age range"{current_color <- colors[age_group];}
 		draw circle(agent_size) color: current_color at:location;
-		
-		
+		if showEncounters{
+			loop connection over:encounters{
+				//draw curve(location, connection.location,1.0, 200, 90) color:rgb (255, 255, 255,255);
+				draw line(location, connection.location) color:rgb (255, 255, 255,255);
+			}
+		}		
 		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,0) at:location empty:true;}
 		if showInteractions{
 			loop connection over:social_circle{
@@ -680,7 +783,7 @@ experiment Flat_2D type:gui {
 			graphics "world" refresh:false{
 				//draw rectangle(world.shape.width,world.shape.height) texture:["/gis/"+case_study+"/texture.jpg"];
 			}
-			//species road aspect:default;
+			//species road aspect:street_of_interest;
 			//species crime aspect:default refresh:false;
 			//species commerce aspect:default refresh:false;
 			//species places aspect:default refresh:false;
@@ -689,12 +792,14 @@ experiment Flat_2D type:gui {
 			species police_patrol aspect:flat_obj;
 			species building aspect:flat refresh:false;
 			species people aspect:flat;
+			species heatmap aspect:default;
 			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
 				string minutes;
 				if current_date.minute < 10{minutes <- "0"+current_date.minute; }
 				else {minutes <- string(current_date.minute);}
 				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",20,#plain);
 				draw ":0123456789" at:{ 0#px, 0#px} color:rgb(0,0,0,0) font:font("Arial",55,#bold);
+				draw ".:-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ()[],>=" at: {0#px,0#px} color:rgb(0,0,0,0) font:font("Arial",19,#bold);
 				draw "People: " +  length(people) at: { 40#px, 60#px } color: #white font:font("Arial",20,#plain);
 				draw ""+current_date.hour+":"+minutes at:{ 40#px, 800#px} color:#white font:font("Arial",55,#bold);
 				draw "Sunlight: "+ sunlight at:{ 40#px, 90#px} color:#white font:font("Arial",20,#plain);
@@ -719,6 +824,7 @@ experiment Flat_2D type:gui {
 				draw circle(10) color:rgb (125,125,100) width:2 empty:true at:{60#px,450#px};
 				draw circle(10) color:rgb (255,0,0) width:2 empty:true at:{75#px,450#px};
 				draw "Perception" color:#white at:{85#px,455#px} font:font("Arial",19,#bold);
+				draw "Interactions: "+people_encountered/nb_people color: #white at: {40#px,480#px} font:font("Arial",19,#bold);
             }
 		}
 		/*display "chart" type: java2D
@@ -746,14 +852,6 @@ experiment Flat_2D type:gui {
 experiment Flat_2D_split type:gui {
 	output{
 		layout #split;
-		/*"police_patrols"::0.0,//C1
-			"other_people"::0.0,//C1
-			"lighting_uniformity_radius"::0.0,//C2
-			"safe_mobility"::0.0,//C3			
-			"pavement_condition"::0.0,//C4
-			"physical_isolation"::0.0,//C5
-			"social_cohesion"::0.0,
-			"crime"::0.0*/
 		display "Formal surveillance" type: opengl draw_env:false{
 			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
