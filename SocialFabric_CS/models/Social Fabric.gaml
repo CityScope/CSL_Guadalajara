@@ -20,12 +20,6 @@ global torus:false{
 	bool showEncounters parameter: "Encounters" category: "Visualization" <- false;
 	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation","Social cohesion","Anti-social behavior","Age range", "Layers"];
 	bool showOverallPerception parameter: "Perception on streets" category:"Visualization" <- false;
-//	float buildings_z parameter: "buildings_z" category: "Visualization" <- 0.0;
-//	float buildings_y parameter: "buildings_y" category: "Visualization" <- 0.0;
-//	float buildings_x parameter: "buildings_x" category: "Visualization" <- 0.0;
-//	float terrain_z parameter: "terrain_z" category: "Visualization" <- -65.0 min:-500.0 max:1000.0;
-//	float terrain_y parameter: "terrain_y" category: "Visualization" <- 1080.0 min:-500.0 max:1000.0;
-//	float terrain_x parameter: "terrain_x" category: "Visualization" <- 790.0 min:-500.0 max:1000.0;
 	//people related parameters
 	int nb_people <- 800;
 	int agent_size <- 6;
@@ -66,7 +60,7 @@ global torus:false{
 	list<heatmap> enabled_cells <- [];
 	
 	init{
-		step <- 30#s;
+		step <- 1#minute;
 		create block from:blocks_file with:[blockID::string(read("CVEGEO")), str_lightning::string(read("ALUMPUB_C")), str_paving::string(read("RECUCALL_C")), str_sidewalk::string(read("BANQUETA_C")), str_access::string(read("ACESOPER_C")), str_trees::string(read("ARBOLES_C"))]{
 			if str_lightning = "Todas las vialidades"{ int_lightning <- 2; }
 			else if str_lightning = "Alguna vialidad"{ int_lightning <- 1; }
@@ -101,36 +95,42 @@ global torus:false{
 		ask people{do init_social_circle;}
 		agent_to_follow <- one_of(people);
 		create crime from:crimes_file with:[type::string(read("DEL"))];
-		create commerce from: commerce_file with:[
-			commerce_name::string(get("name")),
-			description::string(get("description")),
-			longitude::float(get("longitude")),
-			latitude::float(get("latitude")),
-			altitude::float(get("altitude"))
-		]{
-			location <- {latitude,longitude};
-		}
 		create public_transportation from:public_transportation_file;
-		list<road> streets_of_interest <- road where(each.street_name="Camino a la Mesa");
+		//do init_enabled_cells("Camino a la Mesa");
+		do init_whole_heatmap_cells;
+		do cleanup;
+	}
+	
+	reflex update_enabled_cells when:every(1#minutes){
+		ask enabled_cells{
+			do update_value;
+		}
+	}
+	
+	action init_whole_heatmap_cells{
+		loop street over:road{
+			list<heatmap> cells_to_add <- heatmap where(each overlaps street);
+			if cells_to_add != [] and cells_to_add != nil{
+				loop heatmap_element over:cells_to_add{
+					if !(heatmap_element in enabled_cells){
+						add heatmap_element to:enabled_cells;
+					}
+				}
+			}
+		}
+	}
+	action init_enabled_cells(string place_name){
+		list<road> streets_of_interest <- road where(each.street_name=place_name);
 		ask streets_of_interest{
 			street_color <- #yellow;
 		}
 		loop street over:streets_of_interest{
 			list<heatmap> cells_to_add <- heatmap where(each overlaps street);
-			write "Cells to add: "+cells_to_add;
 			if cells_to_add != [] and cells_to_add!=nil{
 				loop heatmap_element over:cells_to_add{
 					add heatmap_element to:enabled_cells;
 				}		
 			}
-			write "Enabled cells:"+enabled_cells;
-		}
-		do cleanup;
-	}
-	
-	reflex update_heatmap when:every(30#seconds) {
-		ask enabled_cells{
-			do update_value;
 		}
 	}
 	
@@ -194,13 +194,13 @@ species road{
 	aspect street_of_interest{draw shape color: street_color;}
 }
 
-grid heatmap width:35 height:35{
+grid heatmap width:35 height:35 parallel:true{
 	float perception_value;
 	rgb cell_color;
 	list<people> people_inside <- [];
 	init{
 		perception_value <- 0.0;
-		cell_color <- rgb(0,0,0,0);
+		cell_color <- rgb(30,30,30,0.5);
 	}
 	action update_value{
 		people_inside <- people where(each overlaps self);
@@ -210,10 +210,10 @@ grid heatmap width:35 height:35{
 				sum <- sum + element.safety_perception;
 			}	
 			perception_value <- sum/length(people_inside);
-			cell_color <- rgb(255-(perception_value*255),255*perception_value,0,0.5);
+			cell_color <- rgb(230-(perception_value*230),230*perception_value,0,0.5);
 		}
 		else{
-			cell_color <- rgb(0,0,0,0);
+			cell_color <- rgb(60,60,60,0.5);
 		}
 	}
 	aspect default{
@@ -771,6 +771,10 @@ species crime{
 	aspect default{
 		draw circle(30) color:#red empty:true width:1.0;
 	}
+}
+
+experiment no_gui type:batch until:time>1#hour{
+	
 }
 
 experiment Flat_2D type:gui {
