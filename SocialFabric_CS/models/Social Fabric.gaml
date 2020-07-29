@@ -14,6 +14,7 @@ global torus:false{
 	//Model parameters
 	bool showInteractions parameter: "Show interactions" category:"Model" <- false;
 	float agentSpeed parameter: "Agents Speed" category: "Model" <- 1.4 min:0.5 max: 10.0;
+	bool save_results parameter: "Save results" category: "Model" <- false;
 	//Visualization parameters
 	bool showBuildings parameter: "Buildings" category: "Visualization" <- false;
 	bool showPerception parameter: "Perception" category: "Visualization" <- false;
@@ -105,6 +106,14 @@ global torus:false{
 		ask enabled_cells{
 			do update_value;
 		}
+	}
+	
+	reflex export_results when:every(1#minute) and save_results=true{
+		string csv_output <- "";
+		ask enabled_cells{
+			csv_output <- csv_output+""+cycle+","+name+","+perception_value+","+current_date.hour+":"+current_date.minute+"\n";
+		}
+		save csv_output to:"../results/heatmap_history.csv" rewrite:false;
 	}
 	
 	action init_whole_heatmap_cells{
