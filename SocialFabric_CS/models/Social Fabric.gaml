@@ -21,6 +21,9 @@ global torus:false{
 	bool showEncounters parameter: "Encounters" category: "Visualization" <- false;
 	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation","Social cohesion","Anti-social behavior","Age range", "Layers"];
 	bool showOverallPerception parameter: "Perception on streets" category:"Visualization" <- false;
+	//Heatmap
+	bool compute_heatmap parameter: "Compute heatmap" category: "Heatmap" <- false;
+	
 	//people related parameters
 	int nb_people <- 800;
 	int agent_size <- 6;
@@ -87,6 +90,7 @@ global torus:false{
 		create places from:denue_file{do computePhysicalIsolation;}
 		ask places{
 			isolation_value <- isolation_value / max(tmp_isolation_values);
+			isolation_value <- 1-isolation_value;
 		}
 		do mapValues;		
 		weight_map <- road as_map(each::each.shape.perimeter);
@@ -102,18 +106,18 @@ global torus:false{
 		do cleanup;
 	}
 	
-	reflex update_enabled_cells when:every(1#minutes){
+	reflex update_enabled_cells when:every(1#minutes) and compute_heatmap{
 		ask enabled_cells{
 			do update_value;
 		}
 	}
 	
 	reflex export_results when:every(1#minute) and save_results=true{
-		string csv_output <- "";
+		string csv_output <- "\n";
 		ask enabled_cells{
 			csv_output <- csv_output+""+cycle+","+name+","+perception_value+","+current_date.hour+":"+current_date.minute+"\n";
 		}
-		save csv_output to:"../results/heatmap_history.csv" rewrite:false;
+		save csv_output to:"../results/heatmap_history.csv" rewrite:false type:csv;
 	}
 	
 	action init_whole_heatmap_cells{
@@ -215,8 +219,8 @@ grid heatmap width:35 height:35 parallel:true{
 		people_inside <- people where(each overlaps self);
 		if people_inside!=[] and people_inside!=nil{
 			float sum <- 0.0;
-			loop element over:people_inside{
-				sum <- sum + element.safety_perception;
+			ask people_inside{
+				sum <- sum + self.safety_perception;
 			}	
 			perception_value <- sum/length(people_inside);
 			cell_color <- rgb(230-(perception_value*230),230*perception_value,0,0.5);
@@ -398,7 +402,7 @@ species people skills:[moving] parallel:true{
 			"crime"::0.1
 			];
 		float init_value <- 1.0;
-		indicators_values <- [													//How important is each indicator for this agent. All of them sum 1.
+		indicators_values <- [													
 			"police_patrols"::init_value,//C1
 			"other_people"::init_value,//C1
 			"lighting_uniformity_radius"::init_value,//C2
@@ -464,7 +468,7 @@ species people skills:[moving] parallel:true{
 		//Considerar la introducción de crimenes a lo largo del día considerando como entrada datos georreferenciados. Además estos tienen que clasificarse porque 
 		//dependiendo del tipo de caracteristicas pueden cometerse distintos tipos de crimen.
 		
-		//C1__FORMAL SURVEILLANCE
+		//C1__ACCESS TO HELP AND SURVEILLANCE
 		//police_patrols_range
 		list<police_patrol> auxPolice <- police_patrol at_distance(5*vision_radius);
 		if auxPolice != []{
@@ -490,7 +494,7 @@ species people skills:[moving] parallel:true{
 		}
 		else{put 0.0 at:"other_people" in:indicators_values;}	
 		
-		//C2__ARTIFICIAL LIGHTING
+		//C2__VISIVILITY
 		//lighting_uniformity_radius
 			//TO DO: differenciate between daytime and nighttime
 		list<road> auxLighting <- road at_distance(vision_radius);
@@ -503,7 +507,7 @@ species people skills:[moving] parallel:true{
 		distance <- distance / 200;
 		put 1-distance at:"public_transportation" in:indicators_values;
 		
-		//C4__MAINTENANCE
+		//C4__PHYSICAL DISORDER
 		//pavement_condition
 		list<road> auxPavement <- road at_distance(vision_radius);
 		put auxPavement!=[]? auxPavement[0].float_paving:0.0 at:"pavement_condition" in:indicators_values;
@@ -742,20 +746,32 @@ species people skills:[moving] parallel:true{
 species police_patrol skills:[moving]{ //for indicator "police_patrols_range"
 	point target;
 	image_file car;
-	path route;
+	path route <- nil;
 	init{
-		location <- building[rnd(length(building)-1)].location;
-		target <- building[rnd(length(building)-1)].location;
+		location <- building[rnd(length(road)-1)].location;
+		target <- building[rnd(length(road)-1)].location;
+		do update_path;
 	}
-	reflex move{
-		if location = target{target <- building[rnd(length(building)-1)].location;}
-		do goto target:target on:road_network move_weights:weight_map;
+	reflex move when:flip(0.1){
+		if location = target{
+			target <- any_location_in(one_of(road));
+			do update_path;
+		}
+		do follow path:route speed:0.1 move_weights:weight_map;
+	}
+	action update_path{
+		route <- path_between(road_network,location,target);
+		loop while: route=nil{
+			target <- {target.x+rnd(-2,2),target.y+rnd(-2,2)};
+			route <- path_between(road_network,location,target);
+		}
+		
 	}
 	aspect flat{
 		draw rectangle(10,3) color:#red;
 	}
 	aspect flat_obj{
-		draw obj_file("/img/police.obj",90::{-1,0,0}) size: 20 at: {location.x,location.y,10} rotate: heading color: #red;
+		draw obj_file("/img/police.obj",90::{-1,0,0}) size: 20 at: {location.x,location.y,10} rotate: heading color: mod(cycle,2)=0?#red:#blue;
 	}
 	aspect terrain{
 		float loc_x <- location.x;
@@ -801,11 +817,11 @@ experiment Flat_2D type:gui {
 			//species commerce aspect:default refresh:false;
 			//species places aspect:default refresh:false;
 			//species public_transportation aspect:default refresh:false;
+			species heatmap aspect:default;
 			species block_front aspect:default refresh:false;
 			species police_patrol aspect:flat_obj;
 			species building aspect:flat refresh:false;
 			species people aspect:flat;
-			species heatmap aspect:default;
 			overlay position: { 40#px, 30#px } size: { 480,1200 } background: # black transparency: 0.5 border: #black {
 				string minutes;
 				if current_date.minute < 10{minutes <- "0"+current_date.minute; }
