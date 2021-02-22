@@ -41,7 +41,8 @@ The current pandemic caused by the SARS-COV2 coronavirus has forced scientists a
     • Enter the project in the constracts folder through a terminal
     • Execute the command truffle compile
     • Execute the command truffle migrate
-    • In ganache, click on contracts, copy the addresses of the contracts
+    • In ganache, click on contracts -> click on link truffle projects -> click on add project -> select the file truffle-config.js 
+    . copy the addresses of the contracts
     • Open the file prueba.py and paste the addresses (In the shipping_contracts function, paste the address of the vaccine contract, in the reception_contract function paste         the reception contract address, and in the application_contract function paste the Application contract address)
     • Run GAMA
     • Choose a new workspace
