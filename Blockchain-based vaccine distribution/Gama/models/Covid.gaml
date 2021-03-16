@@ -1,38 +1,57 @@
 /**
-* Name: Covid
+* Name: COVID
 * Based on the internal empty template. 
-* Author: francisco
+* Author: Francisco
 * Tags: 
 */
 
 
-model Covid
+model COVID
 
 /* Insert your model definition here */
-//global agent
 global{
-	
-	
-	int acti <- 0; //variable to activate the sending of data  according to the place
-	int amount_vaccine;//number of vaccines sent to the country
-	int acti_send <-0; //Variable to activate the data to send (Data shipping)
-	string name_pais;//Name of the pais
 	int tam; //transaction list size
+	int acti <- 0; //variable to activate the sending of data  according to the place
+	int acti_send <-0; //Variable to activate the data to send (Data shipping)
+	//variable 
+	int round <- 0;
+	//variable that activates the sending of data to the python server
+	int send_message_activator <- 0; 
+	
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
 	
-	int vuelta <- 0;
-	int send_message_activator <- 0; //variable that activates the sending of data to the python server
+	bool corruption <- true;
+	
+	
+	//Variables para los envios de vacunas
+	int reported_vaccines <-0;
+	int reported_vaccines_korea <- 0;
+	int reported_vaccines_mexico <-0;
+	int reported_vaccines_guadalajara <- 0;
+	
+	
+	//variables para las recepciones de vacunas
+	int amount_vaccine <- 0;//number of vaccines sent to the country
+	int receive_vaccines_mexico <- 0;
+	int receive_vaccines_guadalajara <- 0;
+	
+	int receive_vaccines_hospital <- 0;
+	
+	
 	
 	file apple_files <- file("../includes/blocks.shp");//apple files
-	file streets <- file("../includes/small_roads.shp"); //Streets files
+	file streets <- file("../includes/roads.shp"); //Streets files
 	geometry shape <- envelope(streets);//Ambient take the form of the streets file
 	graph network_streets; //We declare a street graph
 	map<string,rgb> people_color <- ["infected"::#red,"immune"::#gray, "vaccinated"::#green]; //map colors with status
 	
-	
 	init{
+		create block from:apple_files; //we create the block agent
+		create street from:streets; //We create the street agent
+		network_streets <- as_edge_graph(street);//We create a graph with the agent street
+		
 		//UDP server to receive confirmations of successful ethereum transactions
 		create UDP_Server1 number:1{
 			do connect to: "localhost" protocol: "udp_server" port: 9876 ;
@@ -41,36 +60,23 @@ global{
 		create UDP_Server number:1{
 			do connect to: "localhost" protocol: "udp_server" port: 9877 ;
 		}
+		
 		//TCP Client to send data to smart contracts 
 		create TCP_Client number:1{
 			do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";
 		}
-		create block from:apple_files; //we create the block agent
-		create street from:streets; //We create the street agent
-		network_streets <- as_edge_graph(street);//We create a graph with the agent street
-		
-		//number of agent people
-		create people number:10;
-		//transport agent
-		create transport number:1;
-		
-		
 		
 		//Create places of diferent type
 		create places number:1{
-			type <- "COVAX";
+			type <- "Mexico";
 			location <- any_location_in(one_of(block));
 		}
 		create places number:1{
-			type <- "fabrica";
+			type <- "korea";
 			location <- any_location_in(one_of(block));
 		}
 		create places number:1{
-			type <- "pais";
-			location <- any_location_in(one_of(block));
-		}
-		create places number:1{
-			type <- "estado";
+			type <- "Guadalajara";
 			location <- any_location_in(one_of(block));
 		}
 		create places number:1{
@@ -78,45 +84,289 @@ global{
 			location <- any_location_in(one_of(block));
 		}
 		
-		//Puts a people as infected
-		ask one_of(people){
-			status <- "infected";
+		//transport agent
+		create transport number:1;
 		
+		//number of agent people
+		create people number:10{
+			status <- "infected";
 		}
 		
+		create container_vaccine number:1;
+		
 		step <- 1#minute;
+		
 	}
 }
 
 
 
-//------------------Agent street-------------------------------------
+//***************************** STREET AGENT *************************************
 species street{
 	aspect basic{ //Street aspect
 		draw shape color:#black;
 	}
 }
 
-//---------------------Agent apples (blocks)--------------------------
+//****************************** APPLES AGENT ************************************
 species block{ 
 	aspect basic{ //Block aspect
 		draw shape color:rgb (26, 82, 119,80);
 	}
 }
 
-//--------------------------Agent people----------------------------
-species transport skills:[moving]{
+//****************************** PLACES AGENT ************************************
+species places{
+	string type;
 	
-	point target; //point where the people should go
-	path path_to_follow; //path to follow for the people 
+	int address_who_send <- 0;
+	int addres_to_send <- 1;
 	
-	init{
-		location <- any_location_in(one_of(block)); //the initial location of the people	
-		target <- {438.1037929647038,168.9687552701777,0.0};
-		do update_path;
+	//string pre_amount_vaccine <- "800000";//Total of vaccines
+	string process <- "Creación";
+		
+	//Send data for firs time from fabric to COVAX
+	/* 
+	string send_data_fabric{
+		
+		string prel_amount_vaccine <- "2000000000000";//Total of vaccines
+		return "Enviar" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + type_vaccine + " " + pre_amount_vaccine + " " + process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
+	}
+	* */
+
+	//String for send data from received_data_COVAX
+	/* 
+	string receive_data_COVAX{
+		string pre_amount_vaccine <- "2000000000000";//Total of vaccines
+		return "Recibir" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + no_serie + " " + pre_amount_vaccine + " " + type_vaccine + " " + state + " " + string(date_reception);
+	}
+*/
+	
+	
+	
+	//Function to collect data for send function
+	/* 
+	string send_data{
+		return "Enviar" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + type_vaccine + " " + string(amount_vaccine) + " " + process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
+	}
+	*/
+	/* 
+	//Send to blockchain when the data is received
+	string receive_data{
+		return "Recibir" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + no_serie + " " + string(amount_vaccine) + " " + type_vaccine + " " + state + " " + string(date_reception);	
+	}
+	*/
+	
+	//string to send the name of the pais
+	//string send_data_pais{
+		//return name_pais;
+	//}
+	
+	//Reflex to evaluate the data to send when the transport agent arrives at a place
+	reflex places_question{
+		//if the transport reaches the destination
+		ask transport where (each.location = location){
+			switch myself.type{
+				match "korea" {
+					//Account 1
+					//string data <- myself.send_pais();
+					send_message_activator <- 0;
+					acti <- 1;
+		
+					
+				}
+				match "Mexico" {
+					//Account 2
+					
+					//string data <- myself.data_shipping()
+					myself.address_who_send <- 0;
+					myself.addres_to_send <- 1;
+					string data <- myself.data_received_COVAX();
+					Number_transactions <- Number_transactions + 1;
+					send_message_activator <- 0;
+					acti <- 2;
+				
+				}
+				match "Guadalajara" {
+					//Account 3
+					myself.address_who_send <- 1;
+					myself.addres_to_send <- 2;
+					string data <- myself.data_received();
+					Number_transactions <- Number_transactions + 1;
+					send_message_activator <- 0;
+					acti <- 2;
+				
+				}
+				match "hospital" {
+					//Account 5
+					myself.address_who_send <- 3;
+					myself.addres_to_send <- 4;
+					string data <- myself.data_received();
+					Number_transactions <- Number_transactions + 1;
+					send_message_activator <- 0;
+					acti <- 2;
+				}
+			}
+		}
+	}
+	
+	//Send data of shipping from korea to mexico
+	reflex acti_1 when: acti = 1{
+		amount_vaccine <- 5000;
+		if corruption = true{
+			reported_vaccines <- rnd(amount_vaccine, amount_vaccine + 10);
+		}
+		else{
+			reported_vaccines <- amount_vaccine;
+		}
+		reported_vaccines_korea <- reported_vaccines;
+		write reported_vaccines;
+		string data <- data_fabric();
+		Number_transactions <- Number_transactions + 1;
+		send_message_activator <- 0;
+		acti <-0;
+	}
+	// send data (Data shipping) from mexico to pais
+	reflex acti_2 when:acti = 2{
+		if acti_send = 0{
+			process <- "Envio_país";
+			address_who_send <- 1;
+			addres_to_send <- 2;
+			
+			receive_vaccines_mexico <- amount_vaccine;
+			if corruption = true{
+				reported_vaccines <- rnd(amount_vaccine, amount_vaccine + 10);
+			}
+			else{
+				reported_vaccines <- amount_vaccine;
+			}
+			
+			reported_vaccines_mexico <- reported_vaccines;
+			write reported_vaccines;
+			string data <- data_shipping();
+			Number_transactions <- Number_transactions + 1;
+			send_message_activator <- 0;
+			acti <-0;
+			
+		}
+		// send data (Data shipping) from pais to estado
+		if acti_send = 1{
+			process <- "Envio_estado";
+			//ask container_vaccine{
+			receive_vaccines_guadalajara <- amount_vaccine;
+				amount_vaccine <- int(amount_vaccine / 2);
+				
+				if corruption = true{
+					reported_vaccines <-rnd(amount_vaccine, amount_vaccine + 10);
+				}
+				else{
+					reported_vaccines <- amount_vaccine;
+				}
+				
+				reported_vaccines_guadalajara <- reported_vaccines;
+				write reported_vaccines;
+			//}
+			address_who_send <- 2;
+			addres_to_send <- 3;
+			string data <- data_shipping();
+			Number_transactions <- Number_transactions + 1;
+			send_message_activator <- 0;
+			acti <-0;
+			
+		}
+		// send data (Data shipping) from estado to hospital
+		if acti_send = 2{
+			receive_vaccines_hospital <- amount_vaccine;
+		}
+		acti_send <- acti_send + 1;
 	}
 	
 	
+	
+	//Action to send data from korea to mexico
+	action data_fabric{
+		string send_datakar;
+		ask container_vaccine{
+			send_datakar <- "Enviar" + " " + string(myself.address_who_send) + " " + string(myself.addres_to_send) + " " + type_vaccine + " " + string(reported_vaccines) + " " + myself.process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
+		}
+		string mydata <- send_datakar;
+			ask TCP_Client{
+			data <- mydata;
+			do send_message;
+		}
+	}
+	
+	//Send data mediante TCP Blockchain
+	action data_shipping{
+		string send_data;
+		ask container_vaccine{
+			send_data <- "Enviar" + " " + string(myself.address_who_send) + " " + string(myself.addres_to_send) + " " + type_vaccine + " " + string(reported_vaccines) + " " + myself.process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
+		}
+		string mydata <- send_data;
+			ask TCP_Client{
+			data <- mydata;
+			do send_message;
+		}
+		
+	}
+	
+	//Send data of reception of vaccine
+	action data_received_COVAX{
+		string receive_data_mexico;
+		
+		ask container_vaccine{
+			receive_data_mexico <- "Recibir" + " " + string(myself.address_who_send) + " " + string(myself.addres_to_send) + " " + no_serie + " " + string(amount_vaccine) + " " + type_vaccine + " " + state + " " + string(date_reception);
+		}
+		string mydata <- receive_data_mexico;
+		ask TCP_Client{
+			data <- mydata;
+			do send_message;
+		}
+	}
+	
+	//Send data of reception of vaccine
+	action data_received{
+		string receive_data;
+		ask container_vaccine{
+			receive_data <- "Recibir" + " " + string(myself.address_who_send) + " " + string(myself.addres_to_send) + " " + no_serie + " " + string(amount_vaccine) + " " + type_vaccine + " " + state + " " + string(date_reception);	
+		}
+		string mydata <- receive_data;
+		ask TCP_Client{
+			data <- mydata;
+			do send_message;
+		}
+	}
+	
+	
+	//Aspect of the place
+	aspect basic{
+		draw square(40#m) color:#red;
+		draw type color:#black;
+	}
+}
+
+species container_vaccine{
+	//Data for send to blockchain (Receive)
+	string type_vaccine <- "VACC1925";
+	
+	string no_serie <- "XXXD123";
+	int date_of_expiry <- 2020;
+	int shipping_date <- 2020;
+	int date_reception <- 2020;
+	string state <- "Good_state";
+}
+
+//****************************** TRANSPORT AGENT **********************************
+species transport skills:[moving]{
+	
+	point target; //point where the transport should go
+	path path_to_follow; //path to follow for the transport
+	
+	init{
+		location <- any_location_in(one_of(block)); //the initial location of the people	
+		target <- any_location_in(one_of(street));
+		do update_path;
+	} 
 	
 	//Reflex for the agent´s movement
 	reflex movement{
@@ -129,44 +379,43 @@ species transport skills:[moving]{
 		do follow path: path_to_follow; 
 	}
 	
-	
-
 	//Update path
 	action update_path{
-		vuelta <- vuelta + 1;
+		round <- round + 1;
 		//write "yo soy vuelta" + " " + vuelta;
-		loop while:path_to_follow = nil or path_to_follow = []{ //If the path is empty
+		loop while:path_to_follow = nil{ //If the path is empty
 		 //Change the target to other places
-		 switch vuelta{
+		 switch round{
 		 	match 2{
 		 		//Target fabrica
-		 		ask places where(each.type = "fabrica"){
+		 		ask places where(each.type = "korea"){
 		 		myself.target <- self.location;
+		 		write "Voy a la fabrica";
 		 		}
 		 	}
 		 	match 3{
-		 		//target covax
-		 		ask places where (each.type = "COVAX"){
+		 		//target mexico
+		 		ask places where (each.type = "Mexico"){
 		 			myself.target <- self.location;
+		 			write "Voy a Mexico";
 		 		}
 		 	}
 		 	match 4{
 		 		//targey pais
-		 		ask places where (each.type = "pais"){
+		 		ask places where (each.type = "Guadalajara"){
 		 			myself.target <- self.location;
+		 			write "Voy a pais";
 		 		}
 		 	}
 		 	match 5{
-		 		//target estado
-		 		ask places where (each.type = "estado"){
-		 			myself.target <- self.location;
-		 		}
-		 	}
-		 	match 6{
 		 		//targeet hospital
 		 		ask places where (each.type = "hospital"){
 		 			myself.target <- self.location;
+		 			write "Voy a hospital hospital";
 		 		}
+		 	}
+		 	match 7{
+		 		do die;
 		 	}
 		 	default {
 		 		target <- any_location_in(one_of(block));
@@ -175,230 +424,31 @@ species transport skills:[moving]{
 		path_to_follow <- path_between(network_streets,location,target.location);
 		}
 	}
-	
 	aspect basic{
 		draw circle(4#m) color:#black;
 	}
 }
 
-
-//--------------Agent to represent places)------------------//
-species places skills:[messaging]{
-	string type;
-	//Data for send to blockchain (Receive)
-	int address_who_send <- 0;
-	int addres_to_send <- 1;
-	string type_vaccine <- "VACC1925";
-	string process <- "Creación";
-	string no_serie <- "XXXD123";
-	int date_of_expiry <- 2020;
-	int shipping_date <- 2020;
-	int date_reception <- 2020;
-	string state <- "Good_state";
-	
-	
-		
-	//Send data for firs time from fabric to COVAX
-	string send_data_fabric{
-		string pre_amount_vaccine <- "2000000000000";//Total of vaccines
-		return "Enviar" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + type_vaccine + " " + pre_amount_vaccine + " " + process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
-	}
-	//String for send data from received_data_COVAX
-	string receive_data_COVAX{
-		string pre_amount_vaccine <- "2000000000000";//Total of vaccines
-		return "Recibir" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + no_serie + " " + pre_amount_vaccine + " " + type_vaccine + " " + state + " " + string(date_reception);
-	}
-
-	
-	
-	
-	//Function to collect data for send function
-	string send_data{
-		return "Enviar" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + type_vaccine + " " + string(amount_vaccine) + " " + process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
-	}
-	
-	//Send to blockchain when the data is received
-	string receive_data{
-		return "Recibir" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + no_serie + " " + string(amount_vaccine) + " " + type_vaccine + " " + state + " " + string(date_reception);	
-	}
-	
-	
-	//string to send the name of the pais
-	//string send_data_pais{
-		//return name_pais;
-	//}
-	
-	//Reflex to evaluate the data to send when the transport agent arrives at a place
-	reflex places_question{
-		//if the transport reaches the destination
-		ask transport where (each.location = location){
-			switch myself.type{
-				match "fabrica" {
-					//Account 1
-					//string data <- myself.send_pais();
-					send_message_activator <- 0;
-					acti <- 1;
-					
-				}
-				match "COVAX" {
-					//Account 2
-					
-					//string data <- myself.data_shipping()
-					myself.address_who_send <- 0;
-					myself.addres_to_send <- 1;
-					string data <- myself.data_received_COVAX();
-					Number_transactions <- Number_transactions + 1;
-					send_message_activator <- 0;
-					acti <- 2;
-				}
-				match "pais" {
-					//Account 3
-					myself.address_who_send <- 1;
-					myself.addres_to_send <- 2;
-					string data <- myself.data_received();
-					Number_transactions <- Number_transactions + 1;
-					send_message_activator <- 0;
-					acti <- 2;
-				
-				}
-				match "estado" {
-					//Account 4
-					//string _data <- myself.data_received();
-					myself.address_who_send <- 2;
-					myself.addres_to_send <- 3;
-					string data <- myself.data_received();
-					Number_transactions <- Number_transactions + 1;
-					send_message_activator <- 0;
-					acti <- 2;
-				}
-				match "hospital" {
-					//Account 5
-					myself.address_who_send <- 3;
-					myself.addres_to_send <- 4;
-					string data <- myself.data_received();
-					Number_transactions <- Number_transactions + 1;
-					send_message_activator <- 0;
-				}
-			}
-		}
-	}
-	
-	//Send data of shipping from fabric to COVAX
-	reflex acti_1 when: acti = 1{
-		string data <- data_fabric();
-		Number_transactions <- Number_transactions + 1;
-		send_message_activator <- 0;
-		acti <-0;
-	}
-	// send data (Data shipping) from COVAX to pais
-	reflex acti_2 when:acti = 2{
-		if acti_send = 0{
-			process <- "Envio_país";
-			address_who_send <- 1;
-			addres_to_send <- 2;
-			string data <- data_shipping();
-			Number_transactions <- Number_transactions + 1;
-			send_message_activator <- 0;
-			acti <-0;
-			
-		}
-		// send data (Data shipping) from pais to estado
-		if acti_send = 1{
-			process <- "Envio_estado";
-			amount_vaccine <- int(amount_vaccine / 2);
-			address_who_send <- 2;
-			addres_to_send <- 3;
-			string data <- data_shipping();
-			Number_transactions <- Number_transactions + 1;
-			send_message_activator <- 0;
-			acti <-0;
-			
-		}
-		// send data (Data shipping) from estado to hospital
-		if acti_send = 2{
-			process <- "Envio_hospital";
-			amount_vaccine <- int(amount_vaccine / 2);
-			address_who_send <- 3;
-			addres_to_send <- 4;
-			string data <- data_shipping();
-			Number_transactions <- Number_transactions + 1;
-			send_message_activator <- 0;
-			acti <-0;
-			
-		}
-		acti_send <- acti_send + 1;
-		
-	}
-	
-	
-	
-	//Action to send data from fabric to COVAX
-	action data_fabric{
-		string mydata <- send_data_fabric();
-			ask TCP_Client{
-			data <- mydata;
-			do send_message;
-		}
-	}
-	
-	//Send data mediante TCP Blockchain
-	action data_shipping{
-		string mydata <- send_data();
-			ask TCP_Client{
-			data <- mydata;
-			do send_message;
-		}
-		
-	}
-	
-	//Send data of reception of vaccine
-	action data_received_COVAX{
-		string mydata <- receive_data_COVAX();
-		ask TCP_Client{
-			data <- mydata;
-			do send_message;
-		}
-	}
-	
-	//Send data of reception of vaccine
-	action data_received{
-		string mydata <- receive_data();
-		ask TCP_Client{
-			data <- mydata;
-			do send_message;
-		}
-	}
-	
-	
-	//Aspect of the place
-	aspect basic{
-		draw square(40#m) color:#red;
-		draw string(type) color:#black;
-		
-	}
-}
-
-//--------------------------Agent to represent people--------------------
+//************************************ PEOPLE AGENT ***************************************************
 species people skills:[moving]{
 	point target; //target that the people follows
 	path path_to_follow;//path that the epeople follows
-	float inmunity_time <- 0#seconds; //time of infection of the people
-	int firs_contact <- 0; //variable to activate the first place the agent follows
+	string status <- "infected" among:["infected","immune", "vaccinated"];
 	int age; //People's age
 	string morbidity; //Morbidity of the people
+	int firs_contact <- 0; //variable to activate the first place the agent follows
+	float inmunity_time <- 0#seconds; //time of infection of the people
 	int priority; //priority of the person to receive the vaccine
-	int activator <- 0; //
-	string status <- "infected" among:["infected","immune", "vaccinated"];
 	int count <-0;	
+	
 	
 	init{
 		age <- rnd(100);
 		morbidity <- one_of("si", "no");
 		location <- any_location_in(one_of(block)); //the initial location of the people
-		target <- {438.1037929647038,168.9687552701777,0.0};
+		target <- any_location_in(one_of(street));
 		do update_path;
 	}
-	
 	
 	//Reflex for the agent´s movement
 	reflex movement{
@@ -411,11 +461,10 @@ species people skills:[moving]{
 		do follow path: path_to_follow; 
 	}
 	
-	
 	action update_path{
 		firs_contact <- firs_contact + 1;
 		//write firs_contact;
-		loop while:path_to_follow = nil or path_to_follow = []{//si el camino es vacio o (si no encuentra un camino)
+		loop while:path_to_follow = nil{//si el camino es vacio o (si no encuentra un camino)
 		if firs_contact = 2{
 			ask places where(each.type = "hospital"){
 				myself.target <- self.location; 
@@ -429,8 +478,6 @@ species people skills:[moving]{
 		}
 		
 	}
-	
-	
 	
 	//Reflex of how long you have been infected when you become immune
 	reflex when_is_infected when:status = "infected"{
@@ -446,6 +493,21 @@ species people skills:[moving]{
 	//reflex to determine priority
 	reflex when_immune when:status="immune"{ 
 		inmunity_time <- inmunity_time + step;
+		if age > 59{
+			if inmunity_time > 4#hours{
+				priority <- 1;
+				//write "Tengo prioridada 1";
+			}
+		}
+		if age < 60{
+			if inmunity_time < 4#hours{
+				priority <- 2;
+				//write "Tengo prioridada 2";
+			}
+		}
+	}
+		
+		/* 
 		if age >64 or morbidity = "si"{
 			if inmunity_time > 4#hours{
 				priority <- 1;
@@ -461,7 +523,9 @@ species people skills:[moving]{
 				//write "Tengo prioridada 2";
 			}
 		}
-	}
+		* */
+		
+	
 	
 	//every so often he visits the hospital
 	reflex visit_hospital when:every(rnd(3#hours)){
@@ -522,7 +586,7 @@ species people skills:[moving]{
 	string aplication_vaccine{
 		
 		int date_application <- 2015;
-		return "Aplicar" + " " + string(date_application) + " " + string(age) + " " + string(morbidity);
+		return "Aplicar" + " " + string(date_application) + " " + string(age) + " " + morbidity;
 	}
 	
 	//Send data of vaccine application
@@ -542,16 +606,13 @@ species people skills:[moving]{
 		//draw string(morbidity) color:#black;
 		//draw string(age) color:#black;
 	}
-	
 }
 
-
-//------------------ TCP CLiente (Send data to Python [Smart Contracts in Blockchain])------------------------
+//************************************ TCP CLIENT (SEND DATA TO PYTHON [SMART CONTRACT IN BLOCKCHAIN]) ***********************************
 
 species TCP_Client skills:[network]{
 	string data; //Data to send to blockchain
 
-	
 	//action to send message
 	action send_message{
 		if send_message_activator = 0{
@@ -561,15 +622,9 @@ species TCP_Client skills:[network]{
 		}
 		
 	}
-	
-	
-	
-	
-	
 }
 
-//-------------UDP Server (Receive the name amount of the vaccines according to the population)
-
+//****************************************UDP SERVERS***************************************
 
 //UDP server that receives the confirmation of the transactions received in the python server
 species UDP_Server skills: [network]
@@ -587,6 +642,9 @@ species UDP_Server skills: [network]
 		}
 	}
 }
+
+
+
 //UDP server that receives the confirmation of successful ethereum transactions
 species UDP_Server1 skills: [network]
 {
@@ -605,17 +663,43 @@ species UDP_Server1 skills: [network]
 	}
 }
 
-
-experiment simulacion type:gui{//experiment
-	output{//in out do this
+//******************************** EXPERIMENT ***********************************
+experiment simulation type:gui{
+	output{
 		layout #split;
+		monitor Shipped_korea value: reported_vaccines_korea;
+		monitor Received_Mexico value: receive_vaccines_mexico;
+		monitor Shipped_mexico value: reported_vaccines_mexico;
+		monitor Received_Guadalajara value: receive_vaccines_guadalajara;
+		monitor Shipped_Guadalajara value: reported_vaccines_guadalajara;
+		monitor Received_hospital value: receive_vaccines_hospital;
+		
 		display GUI type:opengl{//display with black background
 			species street aspect:basic;
 			species block aspect:basic;
-			species transport aspect:basic;
 			species places aspect:basic;
+			species transport aspect:basic;
 			species people aspect:basic;
 		}
+		/* 
+		display "Transacciones Reportadas"{
+			chart "Transactions" type:histogram y_label:"Number of transactions"{
+				data "Transacciones rep factory " value:reported_vaccines_factory color:#blue marker:false;
+				data "Transacciones rep COVAX" value:reported_vaccines_COVAX color:#red marker:false;
+				data "Transacciones rep Country" value:reported_vaccines_country color:#red marker:false;
+				data "Transacciones rep State" value:reported_vaccines_state color:#red marker:false;
+			}
+		}
+		display "Transacciones Recibidas"{
+			chart "Transactions" type:histogram y_label:"Number of transactions"{
+				data "Transacciones rec COVAX " value:receive_vaccines_COVAX color:#blue marker:false;
+				data "Transacciones rec Country" value:receive_vaccines_country color:#red marker:false;
+				data "Transacciones rec State" value:receive_vaccines_state color:#red marker:false;
+				data "Transacciones rec Hospital" value:receive_vaccines_hospital color:#red marker:false;
+			}
+		}
+		* */
+		
 		display "Status_pie"{
 			chart "Status of people" type: pie{
 				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
@@ -652,6 +736,3 @@ experiment simulacion type:gui{//experiment
 		}
 	}
 }
-		
-	
-

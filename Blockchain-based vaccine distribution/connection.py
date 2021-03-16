@@ -12,6 +12,12 @@ import time
 
 my_data = []
 tam = 0
+
+activate = False
+count = 0
+sa = 0
+
+
 ServerSocket = socket.socket()
 host = '127.0.0.1'
 port = 9999
@@ -96,14 +102,24 @@ def assign_zise_list(con):
     d = int(ele[1])
     tam = d
     print(tam)
-    r = tam + 8
-    if len(my_data) >= r:
+    print(len(my_data))
+    print(sa)
+    #send data of vaccine application to another account
+    prueba.send_token(3, 4, tam)
+
+    r = tam + 1
+    if tam == sa:
         print("Ande k")       
         save_blockchain()
     
 
 
+
+
 def threaded_client(connection,):
+    global count
+    global cant
+    global sa
     connection.send(str.encode('Welcome to the Server\n'))
     while True:
         data = connection.recv(2048)
@@ -118,9 +134,27 @@ def threaded_client(connection,):
 
                 spli = content.split()
                 print(spli)
+
+                if spli[0] == "Recibir":
+                    activate = True
+                    if activate == True:
+                       
+                        prueba.send_token(count, count + 1, int(spli[4]))
+                        print(count)
+                        print(count + 1)
+                        count += 1
+                        #send_udp_message(content)
+                        activate = False
+                    
+                
+                    
                 #To send the received transactions
-                if spli[0] == "Enviar" or spli[0] == "Recibir" or spli[0] == "Aplicar":
+                #if spli[0] == "Enviar" or spli[0] == "Aplicar":
+                    #send_udp_message(content)
+                if spli[0] == "Aplicar":
+                    sa+= 1
                     send_udp_message(content)
+
                 #Asignar el tamaño de la lista
                 #To stores in Blockchain and send ethereum transactions
                 if spli[0] == "Size":
