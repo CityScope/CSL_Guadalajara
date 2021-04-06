@@ -18,6 +18,8 @@ global{
 	bool corruption <- true;
 	
 	string process <- "Shipping";
+	bool enable_sending_data <- false;
+	
 	
 	int amount_vaccine <- 0;
 	
@@ -28,27 +30,33 @@ global{
 	
 	//variable that activates the sending of data to the python server
 	int send_message_activator <- 0; 
-	
-	file map_file <- file("../includes/blocks.shp");//apple files
-	file streets <- file("../includes/small_roads.shp"); //Streets files
+	string case_study <- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
+	file map_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
+	file streets <- file("../includes/"+case_study+"/roads.shp"); //Streets files
 	geometry shape <- envelope(streets);//Ambient take the form of the streets file
 	graph network_streets; //We declare a street graph
 	
 	init{
-		create block from:map_file; //we create the block agent
+		create block from:map_file with:[geo_id::int(read("CVEGEO")),population::int(read("POBTOT")),pop_65::int(read("P_60YMAS"))]; //we create the block agent
 		create street from:streets; //We create the street agent
 		network_streets <- as_edge_graph(street);//We create a graph with the agent street
 		
 		//TCP Client to send data to smart contracts 
 		create TCP_Client number:1{
-			do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";
+			if enable_sending_data{
+				do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";
+			}
 		}
 		
 		create container_vaccine number:1;
 		
 		//transport agent
-		create transport number:1;
+		//create transport number:1;
 	}
+}
+
+species people skills:[moving]{
+	bool vaccinated <- false;
 }
 
 //***************************** ROADS AGENT *************************************
@@ -60,6 +68,9 @@ species street{
 
 //****************************** BLOCK AGENT ************************************
 species block{ 
+	int geo_id;
+	int population;
+	int pop_65;
 	aspect basic{ //Block aspect
 		draw shape color:rgb (26, 82, 119,80);
 	}
@@ -126,10 +137,13 @@ species transport skills:[moving]{
 			send_data <- "Enviar" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + type_vaccine + " " + string(reported_vaccines) + " " + process + " " + no_serie + " " + string(date_of_expiry) + " " + string(shipping_date);
 		}
 		string mydata <- send_data;
+		if enable_sending_data{
 			ask TCP_Client{
-			data <- mydata;
-			do send_message;
+				data <- mydata;
+				do send_message;
+			}	
 		}
+		
 	}
 	
 	 //*************************get Vaccine**************************************
@@ -146,9 +160,14 @@ species transport skills:[moving]{
 			receive_data <- "Recibir" + " " + string(address_who_send) + " " + string(addres_to_send) + " " + no_serie + " " + string(amount_vaccine) + " " + type_vaccine + " " + state + " " + string(date_reception);	
 		}
 		string mydata <- receive_data;
-		ask TCP_Client{
-			data <- mydata;
-			do send_message;
+		
+		if enable_sending_data{
+			if enable_sending_data{
+				ask TCP_Client{
+					data <- mydata;
+					do send_message;
+				}
+			}	
 		}
 	}
 	

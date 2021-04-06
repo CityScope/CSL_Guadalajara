@@ -20,35 +20,52 @@ global{
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
 	
-	file apple_files <- file("../includes/blocks.shp");//apple files
-	file streets <- file("../includes/roads.shp"); //Streets files
+	bool enable_sending_data <- false;
+	
+	string case_study <- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
+	file map_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
+	file streets <- file("../includes/"+case_study+"/roads.shp"); //Streets files
+	
 	geometry shape <- envelope(streets);//Ambient take the form of the streets file
 	graph network_streets; //We declare a street graph
 	map<string,rgb> people_color <- ["infected"::#red,"immune"::#gray, "vaccinated"::#green]; //map colors with status
 	
 	init{
-		create block from:apple_files; //we create the block agent
+		create block from:map_file with:[cvegeo::string(read("CVEGEO")),pob_60_mas::int(read("P_60YMAS"))]; //we create the block agent
+		create vaccination_point;
 		create street from:streets; //We create the street agent
 		network_streets <- as_edge_graph(street);//We create a graph with the agent street
 		
 		
 		//UDP server to receive confirmations of successful ethereum transactions
 		create UDP_Server1 number:1{
-			do connect to: "localhost" protocol: "udp_server" port: 9876 ;
+			if enable_sending_data{
+				do connect to: "localhost" protocol: "udp_server" port: 9876 ;
+			}
 		}
 		////UDP server to receive transaction confirmations received from the python server
 		create UDP_Server number:1{
-			do connect to: "localhost" protocol: "udp_server" port: 9877 ;
+			if enable_sending_data{
+				do connect to: "localhost" protocol: "udp_server" port: 9877 ;
+			}
 		}
 		
 		//TCP Client to send data to smart contracts 
 		create TCP_Client number:1{
-			do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";
+			if enable_sending_data{
+				do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";	
+			}
 		}
 		
 		//number of agent people
-		create people number:500{
+		/*create people number:500{
 			status <- "infected";
+		}*/
+		ask block{
+			create people number:int(pob_60_mas/10){
+				self.home <- any_location_in(myself);
+				self.location <- home;
+			}
 		}
 		
 		step <- 1#minute;
@@ -60,17 +77,42 @@ species street{
 	aspect basic{ //Street aspect
 		draw shape color:#black;
 	}
+	aspect gray{
+		draw shape color:#gray;
+	}
 }
 
 //****************************** BLOCK AGENT ************************************
 species block{ 
+	string cvegeo;
+	int pob_60_mas;
 	aspect basic{ //Block aspect
 		draw shape color:rgb (26, 82, 119,80);
+	}
+	aspect pob_60_mas{
+		draw shape color:rgb(
+			0,
+			0,
+			int((pob_60_mas/100)*255),
+			0.5		
+		) border:rgb(200,200,200,0.5);
+	}
+}
+
+species vaccination_point{
+	block belongs_to;
+	init{
+		belongs_to <- one_of(block where(each.cvegeo = "1403900012183008"));
+		shape <- belongs_to.shape;
+	}  
+	aspect basic{
+		draw shape color:#darkviolet;
 	}
 }
 
 //************************************ PEOPLE AGENT ***************************************************
 species people skills:[moving]{
+	point home;
 	point target; //target that the people follows
 	path path_to_follow;//path that the epeople follows
 	string status <- "infected" among:["infected","immune", "vaccinated"];
@@ -83,10 +125,8 @@ species people skills:[moving]{
 	
 	
 	init{
-		age <- rnd(100);
+		age <- rnd(60,100);
 		morbidity <- one_of("si", "no");
-		location <- any_location_in(one_of(block)); //the initial location of the people
-		target <- any_location_in(one_of(street));
 		do update_path;
 	}
 	
@@ -105,15 +145,15 @@ species people skills:[moving]{
 		firs_contact <- firs_contact + 1;
 		//write firs_contact;
 		loop while:path_to_follow = nil{//si el camino es vacio o (si no encuentra un camino)
-		if firs_contact = 2{
-			ask block where(each.name = "block37"){
-				myself.target <- self.location; 
-				//write myself.target;
+			if firs_contact = 2{
+				ask block where(each.name = "block37"){
+					myself.target <- self.location; 
+					//write myself.target;
+				}
 			}
-		}
-		else{
-			target <- any_location_in(one_of(block));
-		}
+			else{
+				target <- any_location_in(one_of(block));
+			}
 			path_to_follow <- path_between(network_streets,location,target.location);//camino a seguir
 		}
 		
@@ -181,7 +221,7 @@ species people skills:[moving]{
 					
 					myself.status <- "vaccinated";
 					myself.count <- myself.count + 1;
-					if myself.count = 1{
+					if myself.count = 1 and enable_sending_data{
 						//Send data on the application of the vaccine
 						string data <- myself.application_data();
 						send_message_activator <- 0;
@@ -231,11 +271,13 @@ species people skills:[moving]{
 	//Send data of vaccine application
 	action application_data{
 		string mydata <- aplication_vaccine();
-		ask TCP_Client{
-			data <- mydata;
-			do send_message;
-			send_message_activator <-0;
-			
+		if enable_sending_data{
+			ask TCP_Client{
+				data <- mydata;
+				do send_message;
+				send_message_activator <-0;
+				
+			}
 		}
 	}
 	
@@ -269,7 +311,7 @@ species TCP_Client skills:[network]{
 species UDP_Server skills: [network]
 {
 	reflex fetch when:has_more_message() {	
-		loop while:has_more_message()
+		loop while:has_more_message() and enable_sending_data
 		{
 			message s <- fetch_message();
 			string transactions <- string(s.contents);
@@ -288,7 +330,7 @@ species UDP_Server skills: [network]
 species UDP_Server1 skills: [network]
 {
 	reflex fetch when:has_more_message() {	
-		loop while:has_more_message()
+		loop while:has_more_message() and enable_sending_data
 		{
 			message s <- fetch_message();
 			string transactions <- string(s.contents);
@@ -305,12 +347,13 @@ species UDP_Server1 skills: [network]
 experiment main type:gui{
 	output{
 		layout #split;
-		display GUI type:opengl{
-			species block aspect:basic;
-			species street aspect:basic;
+		display GUI type:opengl draw_env:false{
+			species block aspect:pob_60_mas;
+			species vaccination_point aspect:basic;
+			//species street aspect:gray;
 			species people aspect:basic;
 		}
-		display "Status_pie"{
+		/*display "Status_pie"{
 			chart "Status of people" type: pie{
 				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
 				data "immune" value:length(people where(each.status = "immune")) color:people_color["immune"] marker:false;
@@ -343,7 +386,7 @@ experiment main type:gui{
 				data "Transactions received on the Python server" value:received_transactions color:#green marker:false;
 				data "Ethereum Transactions" value:ethereum_transactions color:#red marker:false;
 			}
-		}
+		}*/
 	}
 	
 }

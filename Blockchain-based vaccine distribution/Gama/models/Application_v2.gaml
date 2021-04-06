@@ -1,7 +1,7 @@
 /**
 * Name: Application
 * Based on the internal empty template. 
-* Author: Francisco
+* Author: Francisco Aleman, Gamaliel Palomo, and Mario Siller
 * Tags: 
 */
 
@@ -11,7 +11,6 @@ model Application
 /* Insert your model definition here */
 global{
 	
-	int tam; //transaction list size
 	
 	//variable that activates the sending of data to the python server
 	int send_message_activator <- 0; 
@@ -63,12 +62,12 @@ global{
 		}*/
 		ask block{
 			create people number:int(pob_60_mas/10){
-				self.home <- any_location_in(myself);
+				self.home <- any_location_in(myself.shape);
 				self.location <- home;
 			}
 		}
 		
-		step <- 1#minute;
+		step <- 5#minute;
 	}
 }
 
@@ -101,13 +100,111 @@ species block{
 
 species vaccination_point{
 	block belongs_to;
+	int applications_per_day <- int(length(people)/10);
+	list<people> vaccination_queue <- [];
 	init{
 		belongs_to <- one_of(block where(each.cvegeo = "1403900012183008"));
 		shape <- belongs_to.shape;
+	}
+	action register_person(people the_person){
+		add the_person to:vaccination_queue;
 	}  
 	aspect basic{
 		draw shape color:#darkviolet;
 	}
+}
+
+//************************************ VACCINE MANAGER AGENT ***************************************************
+species manager{
+	float honesty;
+	float motivation;
+	float risk;
+	vaccination_point assigned_to;
+	int nb_applications <- 0;
+	
+	float compute_motivation{//Probabilidad de cometer un acto de corrupción
+		float result <- 0.0;
+		return result;
+	}
+	
+	//reflex to evaluate which agent person to vaccinate and send the data to the python server
+	reflex call_for_vaccination when:every(1#day){
+		list<people> priority_1_people <- people where(each.priority = 1);
+		if length(priority_1_people) > assigned_to.applications_per_day{
+			int index <- 0;
+			loop times:assigned_to.applications_per_day{
+				people current_person <- priority_1_people[index];
+				ask current_person{
+					do update_target(myself.assigned_to);//Diciendo a la persona que se dirija a este punto de vac.
+				}
+				index <- index + 1;
+			}
+		}
+	}
+	
+	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
+		
+		ask assigned_to.vaccination_queue[0]{
+			status <- "vaccinated";
+			last_change <- cycle;
+			registered <- false;
+			target <- self.home;
+		}
+		nb_applications <- nb_applications + 1;
+		if enable_sending_data{
+			//send blockchain data
+			do application_data(assigned_to.vaccination_queue[0]);
+			Number_transactions <- Number_transactions + 1;
+		}
+		remove index:0 from:assigned_to.vaccination_queue;
+		
+	}
+		
+	//Reflex to get the size of the transacctions list according the number of agents
+	reflex sens_size_list when:nb_applications = assigned_to.applications_per_day{
+		if length(people where(each.priority = 1)) = length(people where(each.status = "vaccinated")){
+			string data <- size_list_send();
+			//write "Ya envie el tamaño";
+		}
+	
+	}
+	
+	string size_list{
+			return "Size" + " " + string(nb_applications);
+		}
+	
+	//Send data of transactions list size 
+	action size_list_send{
+		string mydata <- size_list();
+		ask TCP_Client{
+			data <- mydata;
+			do send_message;
+		}
+	}
+	
+
+	
+	
+	//Send data when a vaccine is aplicated
+	string aplication_vaccine(people the_person){
+		
+		int date_application <- 2015;
+		return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;
+	}
+	
+	//Send data of vaccine application
+	action application_data(people the_person){
+		string mydata <- aplication_vaccine(the_person);
+		if enable_sending_data{
+			ask TCP_Client{
+				data <- mydata;
+				do send_message;
+				send_message_activator <-0;
+				
+			}
+		}
+	}
+	
 }
 
 //************************************ PEOPLE AGENT ***************************************************
@@ -117,50 +214,52 @@ species people skills:[moving]{
 	path path_to_follow;//path that the epeople follows
 	string status <- "infected" among:["infected","immune", "vaccinated"];
 	int age; //People's age
-	string morbidity; //Morbidity of the people
-	int firs_contact <- 0; //variable to activate the first place the agent follows
-	float inmunity_time <- 0#seconds; //time of infection of the people
+	bool morbidity; //Morbidity of the people
+	float inmunity_time <- 0#days; //time of infection of the people
 	int priority; //priority of the person to receive the vaccine
-	int count <-0;	
 	
+	//Agenda related variables
+	bool to_vaccinate <- false;
+	bool registered <- false;
+	int last_change;
+	vaccination_point vp; //Punto de vacunación que le corresponde
 	
 	init{
-		age <- rnd(60,100);
-		morbidity <- one_of("si", "no");
+		age <- rnd(61,100);
+		morbidity <- flip(0.5);
+		last_change <- cycle;
 		do update_path;
 	}
 	
-	//Reflex for the agent´s movement
-	reflex movement{
-		//If the agent arrived the target
-		if location = target{
-			//write "Ya llegue al hospital";
-			path_to_follow <- nil; //Put the path to follow as empty
-			do update_path; //Call the function update_path
+	action update_target(vaccination_point tgt){
+		vp <- tgt;
+		target <- vp.location;
+		do update_path;
+	}	
+	
+	reflex update_priority when:every(1#day){
+		priority <- inmunity_time>4#months?1:2;
+	}
+	
+	reflex movement when:target != location{
+		do follow path: path_to_follow;
+	}
+	
+	reflex arrive when:target=location{
+		if location != home and not registered{
+			ask vp{
+				do register_person(myself);//Al llegar, la persona se registra
+				myself.registered <- true;
+			}
 		}
-		do follow path: path_to_follow; 
 	}
 	
 	action update_path{
-		firs_contact <- firs_contact + 1;
-		//write firs_contact;
-		loop while:path_to_follow = nil{//si el camino es vacio o (si no encuentra un camino)
-			if firs_contact = 2{
-				ask block where(each.name = "block37"){
-					myself.target <- self.location; 
-					//write myself.target;
-				}
-			}
-			else{
-				target <- any_location_in(one_of(block));
-			}
-			path_to_follow <- path_between(network_streets,location,target.location);//camino a seguir
-		}
-		
+		path_to_follow <- path_between(network_streets,location,target.location);//camino a seguir
 	}
 	
 	//Reflex of how long you have been infected when you become immune
-	reflex when_is_infected when:status = "infected"{
+	/*reflex when_is_infected when:status = "infected"{
 		inmunity_time <- inmunity_time + step;
 		if inmunity_time > 30#minutes and flip(0.2){
 			status <- "immune";
@@ -185,109 +284,16 @@ species people skills:[moving]{
 			}
 		}
 	}
-		
-		/* 
-		if age >64 or morbidity = "si"{
-			if inmunity_time > 4#hours{
-				priority <- 1;
-				//write "Tengo prioridada 1";
-			}
-		}
-		if age <64 and morbidity = "no"{
-			priority <- 2;
-		}
-		if age >64 or morbidity ="si"{
-			if inmunity_time < 4#hours{
-				priority <- 2;
-				//write "Tengo prioridada 2";
-			}
-		}
-		* */
-		
 	
 	
-	//every so often he visits the hospital
-	reflex visit_hospital when:every(rnd(3#hours)){
-		if status = "immune"{
-			firs_contact <- 0;
-			do update_path();
-		}
-	}
-	
-	//reflex to evaluate which agent person to vaccinate and send the data to the python server
-	reflex Decide{
-		ask block where (each.location = location){
-			if myself.priority = 1{
-					
-					myself.status <- "vaccinated";
-					myself.count <- myself.count + 1;
-					if myself.count = 1 and enable_sending_data{
-						//Send data on the application of the vaccine
-						string data <- myself.application_data();
-						send_message_activator <- 0;
-						Number_transactions <- Number_transactions + 1;
-					}
-					
-			}
-			else{
-				
-			}
-		}
-	}
-		
-	//Reflex to get the size of the transacctions list according the number of agents
-	reflex sens_size_list when:length(people where(each.priority = 1)) > 1{
-		if length(people where(each.priority = 1)) = length(people where(each.status = "vaccinated")){
-			tam <- length(people where(each.priority = 1));
-			string data <- size_list_send();
-			//write "Ya envie el tamaño";
-		}
-	
-	}
-	
-	string size_list{
-			return "Size" + " " + string(tam);
-		}
-	
-	//Send data of transactions list size 
-	action size_list_send{
-		string mydata <- size_list();
-		ask TCP_Client{
-			data <- mydata;
-			do send_message;
-		}
-	}
-	
-
-	
-	
-	//Send data when a vaccine is aplicated
-	string aplication_vaccine{
-		
-		int date_application <- 2015;
-		return "Aplicar" + " " + string(date_application) + " " + string(age) + " " + morbidity;
-	}
-	
-	//Send data of vaccine application
-	action application_data{
-		string mydata <- aplication_vaccine();
-		if enable_sending_data{
-			ask TCP_Client{
-				data <- mydata;
-				do send_message;
-				send_message_activator <-0;
-				
-			}
-		}
-	}
-	
-
+	*/
 	aspect basic{
 		draw circle(3) color:people_color[status];//people's aspect according to their status
 		//draw string(morbidity) color:#black;
 		//draw string(age) color:#black;
 	}
 }
+
 
 //************************************ TCP CLIENT (SEND DATA TO PYTHON [SMART CONTRACT IN BLOCKCHAIN]) ***********************************
 
