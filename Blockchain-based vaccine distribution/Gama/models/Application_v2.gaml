@@ -60,7 +60,9 @@ global{
 				self.location <- home;
 			}
 		}
-		create vaccination_point;
+		create vaccination_point {
+			token_counter <- length(people);
+		}
 		ask vaccination_point{
 			create manager{
 				location <- myself.location;
@@ -69,6 +71,19 @@ global{
 		}
 		
 		step <- 5#minute;
+	}
+	
+	reflex main_reflex when:every(#day){
+		//Preguntar cuántos tokens diarios quedan y contrastar con los tokens virtuales (blockchain).
+		int physical_tokens;
+		ask vaccination_point{
+			physical_tokens <- token_counter;
+		}
+		string msg <- "request";
+		ask TCP_Client{
+			data <- msg;
+			do send_message;
+		}
 	}
 }
 
@@ -100,12 +115,19 @@ species block{
 }
 
 species vaccination_point{
+	
+	//Physical token variables
+	int token_counter <- 0;
+	
 	block belongs_to;
 	int applications_per_day <- int(length(people)/10);
 	list<people> vaccination_queue <- [];
 	init{
 		belongs_to <- one_of(block where(each.cvegeo = "1403900012183008"));
 		shape <- belongs_to.shape;
+	}
+	reflex when:every(1#day){
+		token_counter <- applications_per_day;
 	}
 	action register_person(people the_person){
 		add the_person to:vaccination_queue;
@@ -172,6 +194,7 @@ species manager{
 			immunity <- true;
 		}
 		nb_applications <- nb_applications + 1;
+		assigned_to.token_counter <- assigned_to.token_counter - 1;
 		if enable_sending_data{
 			//send blockchain data
 			do application_data(assigned_to.vaccination_queue[0]);
@@ -380,6 +403,18 @@ species UDP_Server1 skills: [network]
 				write ethereum_transactions;
 			}
 			
+		}
+	}
+}
+
+species UDP_Server2 skills:[network]{
+	reflex fetch when:has_more_message() {	
+		loop while:has_more_message() and enable_sending_data
+		{
+			message s <- fetch_message();
+			string transactions <- string(s.contents);
+			write transactions;
+			//20,3
 		}
 	}
 }
