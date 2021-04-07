@@ -18,23 +18,22 @@ global{
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
+	list<people> people_priority_1 <- nil update:people where(each.priority = 1);
 	
 	bool enable_sending_data <- false;
 	
 	string case_study <- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
-	file map_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
-	file streets <- file("../includes/"+case_study+"/roads.shp"); //Streets files
+	file blocks_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
+	file streets_file <- file("../includes/"+case_study+"/roads.shp"); //streets_file files
 	
-	geometry shape <- envelope(streets);//Ambient take the form of the streets file
-	graph network_streets; //We declare a street graph
+	geometry shape <- envelope(streets_file);//Ambient take the form of the streets_file file
+	graph roads_network; //We declare a street graph
 	map<string,rgb> people_color <- ["infected"::#red,"immune"::#gray, "vaccinated"::#green]; //map colors with status
 	
 	init{
-		create block from:map_file with:[cvegeo::string(read("CVEGEO")),pob_60_mas::int(read("P_60YMAS"))]; //we create the block agent
-		create vaccination_point;
-		create street from:streets; //We create the street agent
-		network_streets <- as_edge_graph(street);//We create a graph with the agent street
-		
+		create block from:blocks_file with:[cvegeo::string(read("CVEGEO")),pob_60_mas::int(read("P_60YMAS"))]; //we create the block agent
+		create street from:streets_file; //We create the street agent
+		roads_network <- as_edge_graph(street);//We create a graph with the agent street
 		
 		//UDP server to receive confirmations of successful ethereum transactions
 		create UDP_Server1 number:1{
@@ -55,15 +54,17 @@ global{
 				do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";	
 			}
 		}
-		
-		//number of agent people
-		/*create people number:500{
-			status <- "infected";
-		}*/
 		ask block{
 			create people number:int(pob_60_mas/10){
 				self.home <- any_location_in(myself.shape);
 				self.location <- home;
+			}
+		}
+		create vaccination_point;
+		ask vaccination_point{
+			create manager{
+				location <- myself.location;
+				assigned_to <- myself;
 			}
 		}
 		
@@ -118,22 +119,41 @@ species vaccination_point{
 species manager{
 	float honesty;
 	float motivation;
-	float risk;
+	float risk_aversion;
+	float reward;
 	vaccination_point assigned_to;
 	int nb_applications <- 0;
 	
-	float compute_motivation{//Probabilidad de cometer un acto de corrupción
+	init{
+		honesty <- float(rnd(100))/100;
+		risk_aversion <- float(rnd(100))/100;
+		reward <- float(rnd(100))/100;
+	}
+	
+	float compute_motivation{
+		//Probabilidad de cometer un acto de corrupción
 		float result <- 0.0;
+		
 		return result;
 	}
 	
 	//reflex to evaluate which agent person to vaccinate and send the data to the python server
 	reflex call_for_vaccination when:every(1#day){
-		list<people> priority_1_people <- people where(each.priority = 1);
-		if length(priority_1_people) > assigned_to.applications_per_day{
+		if length(people_priority_1) > assigned_to.applications_per_day{
 			int index <- 0;
 			loop times:assigned_to.applications_per_day{
-				people current_person <- priority_1_people[index];
+				people current_person <- people_priority_1[index];
+				ask current_person{
+					do update_target(myself.assigned_to);//Diciendo a la persona que se dirija a este punto de vac.
+				}
+				index <- index + 1;
+			}
+		}
+		else{
+			int counter <- length(people_priority_1);
+			int index <- 0;
+			loop times:counter{
+				people current_person <- people_priority_1[index];
 				ask current_person{
 					do update_target(myself.assigned_to);//Diciendo a la persona que se dirija a este punto de vac.
 				}
@@ -149,6 +169,7 @@ species manager{
 			last_change <- cycle;
 			registered <- false;
 			target <- self.home;
+			immunity <- true;
 		}
 		nb_applications <- nb_applications + 1;
 		if enable_sending_data{
@@ -205,6 +226,10 @@ species manager{
 		}
 	}
 	
+	aspect default{
+		draw circle(5) color:rgb (210, 115, 203,255);
+	}
+	
 }
 
 //************************************ PEOPLE AGENT ***************************************************
@@ -212,13 +237,14 @@ species people skills:[moving]{
 	point home;
 	point target; //target that the people follows
 	path path_to_follow;//path that the epeople follows
-	string status <- "infected" among:["infected","immune", "vaccinated"];
+	string status <- "susceptible" among:["susceptible","infected","immune", "vaccinated"];
 	int age; //People's age
 	bool morbidity; //Morbidity of the people
 	float inmunity_time <- 0#days; //time of infection of the people
 	int priority; //priority of the person to receive the vaccine
 	
 	//Agenda related variables
+	bool immunity <- false;
 	bool to_vaccinate <- false;
 	bool registered <- false;
 	int last_change;
@@ -228,21 +254,22 @@ species people skills:[moving]{
 		age <- rnd(61,100);
 		morbidity <- flip(0.5);
 		last_change <- cycle;
-		do update_path;
 	}
 	
 	action update_target(vaccination_point tgt){
 		vp <- tgt;
-		target <- vp.location;
-		do update_path;
+		target <- any_location_in(vp);
+		//do update_path;
 	}	
 	
 	reflex update_priority when:every(1#day){
-		priority <- inmunity_time>4#months?1:2;
+		priority <- immunity?2:1;
+		//priority <- inmunity_time>4#months?1:2;
 	}
 	
 	reflex movement when:target != location{
-		do follow path: path_to_follow;
+		do goto target:target;
+		//do follow path: path_to_follow;
 	}
 	
 	reflex arrive when:target=location{
@@ -255,7 +282,14 @@ species people skills:[moving]{
 	}
 	
 	action update_path{
-		path_to_follow <- path_between(network_streets,location,target.location);//camino a seguir
+		path_to_follow <- nil;
+		path_to_follow <- path_between(roads_network,location,target);
+		loop while: path_to_follow = nil{
+			write name;
+			do wander speed:5.0;
+			target <- any_location_in(vp);
+			path_to_follow <- path_between(roads_network,location,target);
+		}		
 	}
 	
 	//Reflex of how long you have been infected when you become immune
@@ -288,7 +322,7 @@ species people skills:[moving]{
 	
 	*/
 	aspect basic{
-		draw circle(3) color:people_color[status];//people's aspect according to their status
+		draw circle(10) color:people_color[status];//people's aspect according to their status
 		//draw string(morbidity) color:#black;
 		//draw string(age) color:#black;
 	}
@@ -358,6 +392,13 @@ experiment main type:gui{
 			species vaccination_point aspect:basic;
 			//species street aspect:gray;
 			species people aspect:basic;
+			species manager aspect:default;
+		}
+		display "Vaccination plan"{
+			chart "Vaccination" type:series y_label:"Number of people"{
+				data "Vaccinated" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
+				data "Priority 1" value:length(people_priority_1) color:#blue marker:false;
+			}
 		}
 		/*display "Status_pie"{
 			chart "Status of people" type: pie{
