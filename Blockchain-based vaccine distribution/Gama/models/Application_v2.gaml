@@ -78,7 +78,7 @@ global{
 			self.target <- home;
 		}
 		create vaccination_point {
-			token_counter <- length(people);
+			physical_tokens <- length(people);
 		}
 		ask vaccination_point{
 			create manager{
@@ -110,8 +110,8 @@ global{
 		int physical_tokens;
 		
 		ask vaccination_point{
-			physical_tokens <- token_counter;
-			applied_vaccines <- length(people) - token_counter;
+			physical_tokens <- physical_tokens;
+			applied_vaccines <- length(people) - physical_tokens;
 		}
 		
 		string data <- ""+physical_tokens+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
@@ -150,7 +150,8 @@ species block{
 species vaccination_point{
 	
 	//Physical token variables
-	int token_counter <- 0;
+	int physical_tokens <- 0;
+	int used_tokens <- 0;
 	
 	block belongs_to;
 	int applications_per_day <- int(length(people)/10);
@@ -159,9 +160,11 @@ species vaccination_point{
 		belongs_to <- one_of(block where(each.cvegeo = "1403900012183008"));
 		shape <- belongs_to.shape;
 	}
-	reflex when:every(1#day){
-		token_counter <- applications_per_day;
+	
+	reflex daily_update{
+		used_tokens <- length(people) - physical_tokens;
 	}
+	
 	action register_person(people the_person){
 		add the_person to:vaccination_queue;
 	}  
@@ -227,7 +230,7 @@ species manager{
 			do update_priority;
 		}
 		nb_applications <- nb_applications + 1;
-		assigned_to.token_counter <- assigned_to.token_counter - 1;
+		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
 		if enable_sending_data{
 			//send blockchain data
 			do application_data(assigned_to.vaccination_queue[0]);
@@ -329,6 +332,11 @@ species people skills:[moving]{
 		}
 	}
 	
+	reflex corruption when:every(1#day) and priority != 1 and flip(0.01) and not immunity and target=location{
+		//Ir a vacunarme sin ser llamado.
+		do update_target(vaccination_point closest_to self);
+	}
+	
 	action update_path{
 		path_to_follow <- nil;
 		path_to_follow <- path_between(roads_network,location,target);
@@ -369,7 +377,7 @@ species people skills:[moving]{
 	
 	*/
 	aspect basic{
-		draw circle(10) color:self.age>60?people_color[status]:#blue;//people's aspect according to their status
+		draw circle(10) color:self.age>=60?people_color[status]:(status="vaccinated"?#red:#blue);//people's aspect according to their status
 		//draw string(morbidity) color:#black;
 		//draw string(age) color:#black;
 	}
@@ -466,9 +474,10 @@ experiment main type:gui{
 			species manager aspect:default;
 		}
 		display "Vaccination plan"{
-			chart "Vaccination" type:series y_label:"Number of people"{
-				data "Vaccinated" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-				data "Priority 1" value:length(people_priority_1) color:#blue marker:false;
+			chart "Vaccination" type:series y_label:"Number"{
+				data "Used Physical Tokens" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
+				data "Priority 1 people" value:length(people_priority_1) color:#blue marker:false;
+				data "Priority 2 vaccinated" value:length(people where(each.age<60 and each.status ="vaccinated")) marker:false;
 			}
 		}
 		/*display "Status_pie"{
