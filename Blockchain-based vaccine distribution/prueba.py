@@ -77,7 +77,7 @@ def view_Tokens(account):
 
     contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi)
     
-    for i in range(4):
+    for i in range(2):
         res = contract.functions.getBalance(web3.eth.accounts[account]).call()
         print(res)
         account += 1
@@ -96,7 +96,7 @@ def view_Tokens_send(account):
 
     contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi)
     #solo 2 porque solo necesitaremos el número de cuentas disponibles
-    for i in range(2):
+    for i in range(4):
         res = contract.functions.getBalance(web3.eth.accounts[account]).call()
         print(res)
         account += 1
