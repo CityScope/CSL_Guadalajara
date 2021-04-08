@@ -77,11 +77,33 @@ def view_Tokens(account):
 
     contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi)
     
+    for i in range(4):
+        res = contract.functions.getBalance(web3.eth.accounts[account]).call()
+        print(res)
+        account += 1
+        if res != 0:
+            send_udp_message(str(res))
+        
+
+def view_Tokens_send(account):
+   
+    compiled_contract_path = 'build/contracts/MetaCoin.json'
+    deployed_contract_address = '0xf8a3F6a93EaCB8c8847EAef456e61bE134B68368'
+
+    with open(compiled_contract_path) as file:
+        contract_json = json.load(file) #Load contract info as JSON
+        contract_abi = contract_json['abi']
+
+    contract = web3.eth.contract(address=deployed_contract_address, abi=contract_abi)
+    #solo 2 porque solo necesitaremos el número de cuentas disponibles
     for i in range(2):
         res = contract.functions.getBalance(web3.eth.accounts[account]).call()
         print(res)
         account += 1
-        send_udp_message(str(res))
+      
+        if res != 0:
+            send_token(account,0,res)
+            
 
 
 
@@ -109,4 +131,4 @@ def send_udp_message2(msgFromClient):
 
 
 
-view_Tokens(0)
+view_Tokens_send(0)

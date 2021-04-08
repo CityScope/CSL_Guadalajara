@@ -105,6 +105,7 @@ def assign_zise_list(con):
     print(len(my_data))
     print(sa)
     #send data of vaccine application to another account
+    #Aquí se aplican las vacunas
     prueba.send_token(3, 4, tam)
 
     r = tam + 1
