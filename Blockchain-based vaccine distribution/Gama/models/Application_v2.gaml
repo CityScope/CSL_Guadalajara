@@ -106,16 +106,16 @@ global{
 		
 	}
 	
-	reflex save_data when:activador = true{
-		int physical_tokens;
+	reflex save_data when:every(#day){//activador = true{
+		int physical_token_counter;
 		
 		ask vaccination_point{
-			physical_tokens <- physical_tokens;
+			physical_token_counter <- physical_tokens;
 			applied_vaccines <- length(people) - physical_tokens;
 		}
 		
-		string data <- ""+physical_tokens+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
-		save data to:"results.csv" type:csv rewrite:false;
+		string data <- ""+cycle+","+current_date.day+","+physical_token_counter+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
+		save data to:"../outputs/results.csv" type:csv rewrite:false;
 		activador <- false;	
 	}
 }
@@ -262,7 +262,13 @@ species manager{
 	//Send data when a vaccine is aplicated
 	string aplication_vaccine(people the_person){
 		int date_application <- 2015;
-		return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;
+		if the_person.priority = 2{
+			return "false "+"Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;
+		}
+		else{
+			return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;	
+		}
+		
 	}
 	
 	//Send data of vaccine application
