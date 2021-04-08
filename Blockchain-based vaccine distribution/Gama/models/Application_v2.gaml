@@ -221,6 +221,14 @@ species manager{
 	
 	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 		
+		
+		nb_applications <- nb_applications + 1;
+		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
+		if enable_sending_data{
+			//send blockchain data
+			do application_data(assigned_to.vaccination_queue[0]);
+			Number_transactions <- Number_transactions + 1;
+		}
 		ask assigned_to.vaccination_queue[0]{
 			status <- "vaccinated";
 			last_change <- cycle;
@@ -228,13 +236,6 @@ species manager{
 			target <- self.home;
 			immunity <- true;
 			do update_priority;
-		}
-		nb_applications <- nb_applications + 1;
-		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
-		if enable_sending_data{
-			//send blockchain data
-			do application_data(assigned_to.vaccination_queue[0]);
-			Number_transactions <- Number_transactions + 1;
 		}
 		remove index:0 from:assigned_to.vaccination_queue;
 	}
