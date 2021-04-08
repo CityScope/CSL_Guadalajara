@@ -20,7 +20,7 @@ global{
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
 	
-	bool enable_sending_data <- false;
+	bool enable_sending_data <- true;
 	
 	string case_study <- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
 	file map_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
@@ -353,7 +353,7 @@ experiment main type:gui{
 			//species street aspect:gray;
 			species people aspect:basic;
 		}
-		/*display "Status_pie"{
+		display "Status_pie"{
 			chart "Status of people" type: pie{
 				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
 				data "immune" value:length(people where(each.status = "immune")) color:people_color["immune"] marker:false;
@@ -386,7 +386,7 @@ experiment main type:gui{
 				data "Transactions received on the Python server" value:received_transactions color:#green marker:false;
 				data "Ethereum Transactions" value:ethereum_transactions color:#red marker:false;
 			}
-		}*/
+		}
 	}
 	
 }
