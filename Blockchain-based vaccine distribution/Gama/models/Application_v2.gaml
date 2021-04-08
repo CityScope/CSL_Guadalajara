@@ -14,6 +14,9 @@ global{
 	
 	//variable that activates the sending of data to the python server
 	int send_message_activator <- 0; 
+	int virtual_tokens <- 0;
+	int applied_virtual_tokens <- 0;
+	int applied_vaccines <- 0;
 	
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
@@ -38,7 +41,14 @@ global{
 		//UDP server to receive confirmations of successful ethereum transactions
 		create UDP_Server1 number:1{
 			if enable_sending_data{
-				do connect to: "localhost" protocol: "udp_server" port: 9876 ;
+				do connect to: "localhost" protocol: "udp_server" port: 9875 ;
+			}
+		}
+		
+		//Servidor que recibe los tokens virtuales y tokens virtuales aplicados
+		create UDP_Server2 number:1{
+			if enable_sending_data{
+				do connect to: "localhost" protocol: "udp_server" port: 9876;
 			}
 		}
 		////UDP server to receive transaction confirmations received from the python server
@@ -73,17 +83,31 @@ global{
 		step <- 5#minute;
 	}
 	
+	bool activador <- false;
+	
 	reflex main_reflex when:every(#day){
 		//Preguntar cuántos tokens diarios quedan y contrastar con los tokens virtuales (blockchain).
-		int physical_tokens;
-		ask vaccination_point{
-			physical_tokens <- token_counter;
-		}
+		//Cuantos tokens quedan y cuantos se han aplicado
+		
 		string msg <- "request";
 		ask TCP_Client{
 			data <- msg;
 			do send_message;
 		}
+		
+	}
+	
+	reflex save_data when:activador = true{
+		int physical_tokens;
+		
+		ask vaccination_point{
+			physical_tokens <- token_counter;
+			applied_vaccines <- length(people) - token_counter;
+		}
+		
+		string data <- ""+physical_tokens+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
+		save data to:"results.csv" type:csv rewrite:false;
+		activador <- false;	
 	}
 }
 
@@ -371,6 +395,7 @@ species TCP_Client skills:[network]{
 //****************************************UDP SERVERS***************************************
 
 //UDP server that receives the confirmation of the transactions received in the python server
+//Transacciones recibidas en el servidor python
 species UDP_Server skills: [network]
 {
 	reflex fetch when:has_more_message() {	
@@ -390,6 +415,7 @@ species UDP_Server skills: [network]
 
 
 //UDP server that receives the confirmation of successful ethereum transactions
+//Transacciones exitosas (Vacunas aplicadas)
 species UDP_Server1 skills: [network]
 {
 	reflex fetch when:has_more_message() {	
@@ -407,17 +433,31 @@ species UDP_Server1 skills: [network]
 	}
 }
 
-species UDP_Server2 skills:[network]{
-	reflex fetch when:has_more_message() {	
-		loop while:has_more_message() and enable_sending_data
+//Servidor para recibir los tokens virtuales y los tokens virtuales aplicados
+species UDP_Server2 skills: [network]
+{
+	int num <-0;
+	reflex fetch when:has_more_message() and enable_sending_data {	
+		loop while:has_more_message()
 		{
 			message s <- fetch_message();
 			string transactions <- string(s.contents);
 			write transactions;
-			//20,3
+			if num = 0{
+				virtual_tokens <- int(transactions);
+				write "virtual token" + " "+  virtual_tokens;
+			}else if num = 1{
+				applied_virtual_tokens <- int(transactions);
+				write "applied virtual token" + " " +applied_virtual_tokens;
+				activador <- true;
+				num <- 0;
+			}
+			num <- num + 1;
 		}
 	}
 }
+
+
 
 experiment main type:gui{
 	output{

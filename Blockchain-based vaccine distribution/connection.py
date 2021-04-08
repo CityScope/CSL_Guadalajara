@@ -111,10 +111,11 @@ def assign_zise_list(con):
     if tam == sa:
         print("Ande k")       
         save_blockchain()
+        #Aqui mandar mensaje a gama con el numero de tokens virtuales
     
-
-
-
+def send_tokens_gama(num):
+    prueba.view_Tokens(num)
+    
 
 def threaded_client(connection,):
     global count
@@ -135,6 +136,7 @@ def threaded_client(connection,):
                 spli = content.split()
                 print(spli)
 
+            
                 if spli[0] == "Recibir":
                     activate = True
                     if activate == True:
@@ -145,15 +147,16 @@ def threaded_client(connection,):
                         count += 1
                         #send_udp_message(content)
                         activate = False
-                    
                 
-                    
                 #To send the received transactions
                 #if spli[0] == "Enviar" or spli[0] == "Aplicar":
                     #send_udp_message(content)
                 if spli[0] == "Aplicar":
                     sa+= 1
                     send_udp_message(content)
+
+                if spli[0] == "request":
+                    send_tokens_gama(0)
 
                 #Asignar el tamaño de la lista
                 #To stores in Blockchain and send ethereum transactions
@@ -182,3 +185,4 @@ while True:
     ThreadCount += 1
     print('Thread Number: ' + str(ThreadCount))
 ServerSocket.close()
+
