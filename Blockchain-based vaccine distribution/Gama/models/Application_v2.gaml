@@ -5,12 +5,10 @@
 * Tags: 
 */
 
-
 model Application
 
 /* Insert your model definition here */
 global{
-	
 	
 	//variable that activates the sending of data to the python server
 	int send_message_activator <- 0; 
@@ -58,7 +56,16 @@ global{
 			create people number:int(pob_60_mas/10){
 				self.home <- any_location_in(myself.shape);
 				self.location <- home;
+				self.age <- rnd(61,100);
+				self.target <- home;
+				do update_priority;
 			}
+		}
+		create people number:50{
+			self.home <- any_location_in(one_of(block));
+			self.location <- home;
+			self.age <- rnd(18,60);
+			self.target <- home;
 		}
 		create vaccination_point {
 			token_counter <- length(people);
@@ -80,9 +87,11 @@ global{
 			physical_tokens <- token_counter;
 		}
 		string msg <- "request";
-		ask TCP_Client{
-			data <- msg;
-			do send_message;
+		if enable_sending_data{
+			ask TCP_Client{
+				data <- msg;
+				do send_message;
+			}
 		}
 	}
 }
@@ -106,9 +115,9 @@ species block{
 	}
 	aspect pob_60_mas{
 		draw shape color:rgb(
-			0,
-			0,
 			int((pob_60_mas/100)*255),
+			0,
+			0,
 			0.5		
 		) border:rgb(200,200,200,0.5);
 	}
@@ -155,7 +164,6 @@ species manager{
 	float compute_motivation{
 		//Probabilidad de cometer un acto de corrupción
 		float result <- 0.0;
-		
 		return result;
 	}
 	
@@ -192,6 +200,7 @@ species manager{
 			registered <- false;
 			target <- self.home;
 			immunity <- true;
+			do update_priority;
 		}
 		nb_applications <- nb_applications + 1;
 		assigned_to.token_counter <- assigned_to.token_counter - 1;
@@ -201,7 +210,6 @@ species manager{
 			Number_transactions <- Number_transactions + 1;
 		}
 		remove index:0 from:assigned_to.vaccination_queue;
-		
 	}
 		
 	//Reflex to get the size of the transacctions list according the number of agents
@@ -210,12 +218,11 @@ species manager{
 			string data <- size_list_send();
 			//write "Ya envie el tamaño";
 		}
-	
 	}
 	
 	string size_list{
 			return "Size" + " " + string(nb_applications);
-		}
+	}
 	
 	//Send data of transactions list size 
 	action size_list_send{
@@ -225,13 +232,8 @@ species manager{
 			do send_message;
 		}
 	}
-	
-
-	
-	
 	//Send data when a vaccine is aplicated
 	string aplication_vaccine(people the_person){
-		
 		int date_application <- 2015;
 		return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;
 	}
@@ -252,7 +254,6 @@ species manager{
 	aspect default{
 		draw circle(5) color:rgb (210, 115, 203,255);
 	}
-	
 }
 
 //************************************ PEOPLE AGENT ***************************************************
@@ -274,9 +275,9 @@ species people skills:[moving]{
 	vaccination_point vp; //Punto de vacunación que le corresponde
 	
 	init{
-		age <- rnd(61,100);
 		morbidity <- flip(0.5);
 		last_change <- cycle;
+		
 	}
 	
 	action update_target(vaccination_point tgt){
@@ -285,8 +286,8 @@ species people skills:[moving]{
 		//do update_path;
 	}	
 	
-	reflex update_priority when:every(1#day){
-		priority <- immunity?2:1;
+	action update_priority{
+		priority <-  (not immunity and age>59)?1:2;
 		//priority <- inmunity_time>4#months?1:2;
 	}
 	
@@ -295,8 +296,8 @@ species people skills:[moving]{
 		//do follow path: path_to_follow;
 	}
 	
-	reflex arrive when:target=location{
-		if location != home and not registered{
+	reflex arrive when:target=location and location!=home{
+		if not registered{
 			ask vp{
 				do register_person(myself);//Al llegar, la persona se registra
 				myself.registered <- true;
@@ -342,15 +343,13 @@ species people skills:[moving]{
 		}
 	}
 	
-	
 	*/
 	aspect basic{
-		draw circle(10) color:people_color[status];//people's aspect according to their status
+		draw circle(10) color:self.age>60?people_color[status]:#blue;//people's aspect according to their status
 		//draw string(morbidity) color:#black;
 		//draw string(age) color:#black;
 	}
 }
-
 
 //************************************ TCP CLIENT (SEND DATA TO PYTHON [SMART CONTRACT IN BLOCKCHAIN]) ***********************************
 
@@ -364,7 +363,6 @@ species TCP_Client skills:[network]{
 			do send contents: mm;
 			send_message_activator <- 1;
 		}
-		
 	}
 }
 
@@ -402,7 +400,6 @@ species UDP_Server1 skills: [network]
 				ethereum_transactions <- ethereum_transactions + 1;
 				write ethereum_transactions;
 			}
-			
 		}
 	}
 }
@@ -419,10 +416,10 @@ species UDP_Server2 skills:[network]{
 	}
 }
 
-experiment main type:gui{
+experiment simulation type:gui{
 	output{
 		layout #split;
-		display GUI type:opengl draw_env:false{
+		display GUI type:opengl draw_env:false background:#black{
 			species block aspect:pob_60_mas;
 			species vaccination_point aspect:basic;
 			//species street aspect:gray;
