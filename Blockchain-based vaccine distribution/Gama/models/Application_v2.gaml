@@ -21,7 +21,7 @@ global{
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
 	list<people> people_priority_1 <- nil update:people where(each.priority = 1);
 	
-	bool enable_sending_data <- false;
+	bool enable_sending_data <- true;
 	
 	string case_study <- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
 	file blocks_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
@@ -71,12 +71,13 @@ global{
 				do update_priority;
 			}
 		}
+		
 		create people number:50{
 			self.home <- any_location_in(one_of(block));
 			self.location <- home;
 			self.age <- rnd(18,60);
 			self.target <- home;
-		}
+		} 
 		create vaccination_point {
 			physical_tokens <- length(people);
 		}
@@ -221,6 +222,14 @@ species manager{
 	
 	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 		
+		
+		nb_applications <- nb_applications + 1;
+		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
+		if enable_sending_data{
+			//send blockchain data
+			do application_data(assigned_to.vaccination_queue[0]);
+			Number_transactions <- Number_transactions + 1;
+		}
 		ask assigned_to.vaccination_queue[0]{
 			status <- "vaccinated";
 			last_change <- cycle;
@@ -228,13 +237,6 @@ species manager{
 			target <- self.home;
 			immunity <- true;
 			do update_priority;
-		}
-		nb_applications <- nb_applications + 1;
-		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
-		if enable_sending_data{
-			//send blockchain data
-			do application_data(assigned_to.vaccination_queue[0]);
-			Number_transactions <- Number_transactions + 1;
 		}
 		remove index:0 from:assigned_to.vaccination_queue;
 	}
@@ -263,9 +265,11 @@ species manager{
 	string aplication_vaccine(people the_person){
 		int date_application <- 2015;
 		if the_person.priority = 2{
+			write "false"; 
 			return "false "+"Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;
 		}
 		else{
+			write "true";
 			return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;	
 		}
 		
