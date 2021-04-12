@@ -15,6 +15,8 @@ global{
 	int virtual_tokens <- 0;
 	int applied_virtual_tokens <- 0;
 	int applied_vaccines <- 0;
+	int num <- 0;
+	int count_applications <- 0;
 	
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
@@ -36,11 +38,12 @@ global{
 		create street from:streets_file; //We create the street agent
 		roads_network <- as_edge_graph(street);//We create a graph with the agent street
 		
+		
 		//UDP server to receive confirmations of successful ethereum transactions
 		create UDP_Server1 number:1{
 			if enable_sending_data{
 				do connect to: "localhost" protocol: "udp_server" port: 9875 ;
-			}
+			} 
 		}
 		
 		//Servidor que recibe los tokens virtuales y tokens virtuales aplicados
@@ -62,6 +65,8 @@ global{
 				do connect to: "localhost" protocol: "tcp_client" port: 9999 with_name: "Client";	
 			}
 		}
+		
+		
 		ask block{
 			create people number:int(pob_60_mas/10){
 				self.home <- any_location_in(myself.shape);
@@ -80,6 +85,7 @@ global{
 		} 
 		create vaccination_point {
 			physical_tokens <- length(people);
+			write physical_tokens;
 		}
 		ask vaccination_point{
 			create manager{
@@ -92,22 +98,8 @@ global{
 	}
 	
 	bool activador <- false;
-	
-	reflex main_reflex when:every(#day){
-		//Preguntar cuántos tokens diarios quedan y contrastar con los tokens virtuales (blockchain).
-		//Cuantos tokens quedan y cuantos se han aplicado
-		
-		string msg <- "request";
-		if enable_sending_data{
-			ask TCP_Client{
-				data <- msg;
-				do send_message;
-			}
-		}
-		
-	}
-	
-	reflex save_data when:every(#day){//activador = true{
+
+	reflex save_data when:activador = true{
 		int physical_token_counter;
 		
 		ask vaccination_point{
@@ -117,8 +109,26 @@ global{
 		
 		string data <- ""+cycle+","+current_date.day+","+physical_token_counter+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
 		save data to:"../outputs/results.csv" type:csv rewrite:false;
+		ask UDP_Server2{
+			num <- 0;
+		}
 		activador <- false;	
 	}
+	
+	int day <- 0;
+	reflex day_count when:every(1#day){
+		day <- day + 1;
+		if day > 8{
+		string msg <- "request";
+		if enable_sending_data{
+			ask TCP_Client{
+				data <- msg;
+				do send_message;
+			}
+		}
+		}
+	}
+
 }
 
 //***************************** ROADS AGENT *************************************
@@ -155,7 +165,11 @@ species vaccination_point{
 	int used_tokens <- 0;
 	
 	block belongs_to;
-	int applications_per_day <- int(length(people)/10);
+	int applications_per_day <- 30;
+	
+	//int(length(people)/10); 
+	
+	
 	list<people> vaccination_queue <- [];
 	init{
 		belongs_to <- one_of(block where(each.cvegeo = "1403900012183008"));
@@ -182,6 +196,7 @@ species manager{
 	float reward;
 	vaccination_point assigned_to;
 	int nb_applications <- 0;
+	
 	
 	init{
 		honesty <- float(rnd(100))/100;
@@ -222,14 +237,12 @@ species manager{
 	
 	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 		
-		
-		nb_applications <- nb_applications + 1;
-		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
 		if enable_sending_data{
 			//send blockchain data
 			do application_data(assigned_to.vaccination_queue[0]);
 			Number_transactions <- Number_transactions + 1;
 		}
+		
 		ask assigned_to.vaccination_queue[0]{
 			status <- "vaccinated";
 			last_change <- cycle;
@@ -238,41 +251,40 @@ species manager{
 			immunity <- true;
 			do update_priority;
 		}
+		
+		
+		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
+		nb_applications <- nb_applications + 1;
+		count_applications <- count_applications + 1;
+		
 		remove index:0 from:assigned_to.vaccination_queue;
 	}
-		
+	
+	bool request <- false;
 	//Reflex to get the size of the transacctions list according the number of agents
-	reflex sens_size_list when:nb_applications = assigned_to.applications_per_day{
-		if length(people where(each.priority = 1)) = length(people where(each.status = "vaccinated")){
-			string data <- size_list_send();
-			//write "Ya envie el tamaño";
+	reflex activate_request when:count_applications = assigned_to.applications_per_day{
+		count_applications <- 0;
+		request <- true;
+		if request{
+			string msg <- "request";
+			if enable_sending_data{
+				ask TCP_Client{
+					data <- msg;
+					do send_message;
+				}	
+		}
+		request <- false;
 		}
 	}
-	
-	string size_list{
-			return "Size" + " " + string(nb_applications);
-	}
-	
-	//Send data of transactions list size 
-	action size_list_send{
-		string mydata <- size_list();
-		ask TCP_Client{
-			data <- mydata;
-			do send_message;
-		}
-	}
+
 	//Send data when a vaccine is aplicated
 	string aplication_vaccine(people the_person){
 		int date_application <- 2015;
-		if the_person.priority = 2{
-			write "false"; 
-			return "false "+"Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;
-		}
-		else{
-			write "true";
-			return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;	
-		}
-		
+		//if the_person.priority = 1{
+		num <- num + 1;
+		write num;
+		return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;	
+		//}
 	}
 	
 	//Send data of vaccine application
@@ -314,7 +326,6 @@ species people skills:[moving]{
 	init{
 		morbidity <- flip(0.5);
 		last_change <- cycle;
-		
 	}
 	
 	action update_target(vaccination_point tgt){
@@ -347,6 +358,7 @@ species people skills:[moving]{
 		do update_target(vaccination_point closest_to self);
 	}
 	
+
 	action update_path{
 		path_to_follow <- nil;
 		path_to_follow <- path_between(roads_network,location,target);
@@ -465,9 +477,9 @@ species UDP_Server2 skills: [network]
 				applied_virtual_tokens <- int(transactions);
 				write "applied virtual token" + " " +applied_virtual_tokens;
 				activador <- true;
-				num <- 0;
 			}
 			num <- num + 1;
+			write num;
 		}
 	}
 }
@@ -475,6 +487,9 @@ species UDP_Server2 skills: [network]
 
 experiment main type:gui{
 	output{
+		monitor "numeroTokens usados" value: length(people where(each.status = "vaccinated"));
+		monitor "Personas vacunadas(Prioridad 2)" value: length(people where(each.age<60 and each.status ="vaccinated"));
+		monitor "personas" value:length(people);
 		layout #split;
 		display GUI type:opengl draw_env:false background:#black{
 			species block aspect:pob_60_mas;

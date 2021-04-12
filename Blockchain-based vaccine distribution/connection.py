@@ -15,7 +15,11 @@ tam = 0
 
 activate = False
 count = 0
-sa = 0
+tokens = 0
+true_tokens = 0
+fake_tokens = 0
+day = 0
+activate_send_token = False
 
 
 ServerSocket = socket.socket()
@@ -74,8 +78,9 @@ def get_contents(xml_msg,xml_path):
 
 def save_blockchain():
     
-  
+    i = 0
     for j in my_data:
+        i +=1
         new_message = j.split()
         print(new_message)
         if new_message[0] == "Enviar":
@@ -95,33 +100,24 @@ def save_blockchain():
             date_application = int(new_message[1])
             age_people = int(new_message[2])
             prueba.application_contract(date_application, age_people, new_message[3])
+        
    
-
-def assign_zise_list(con):
-    ele = con.split()
-    d = int(ele[1])
-    tam = d
-    print(tam)
-    print(len(my_data))
-    print(sa)
-    #send data of vaccine application to another account
-    #Aquí se aplican las vacunas
-    prueba.send_token(3, 4, tam)
-
-    r = tam + 1
-    if tam == sa:
-        print("Ande k")       
-        save_blockchain()
-        #Aqui mandar mensaje a gama con el numero de tokens virtuales
     
 def send_tokens_gama(num):
+    global tokens
+    print("soy tokens" + str(tokens))
+    prueba.send_token(3, 4, tokens)
     prueba.view_Tokens(num)
+    tokens = 0
+    #fake_tokens = 0
+    #true_tokens = 0
     
 
 def threaded_client(connection,):
     global count
-    global cant
-    global sa
+    global tokens
+    global day
+    global fake_tokens
     connection.send(str.encode('Welcome to the Server\n'))
     while True:
         data = connection.recv(2048)
@@ -153,20 +149,26 @@ def threaded_client(connection,):
                 #if spli[0] == "Enviar" or spli[0] == "Aplicar":
                     #send_udp_message(content)
                 if spli[0] == "Aplicar":
-                    sa+= 1
-                    send_udp_message(content)
+                    tokens += 1
+                    print(tokens)
+                    #send_udp_message(content)
 
                 if spli[0] == "request":
-                    send_tokens_gama(0)
-
-                #Asignar el tamaño de la lista
-                #To stores in Blockchain and send ethereum transactions
-                if spli[0] == "Size":
-                    assign_zise_list(content)
-                
+                    day += 1
+                    send_tokens_gama(3)
+                    if day == 15:
+                        save_blockchain()
                     
+                        
+                if spli[0] == "false":
+                    tokens += 1
+                    fake_tokens += 1
+
                 
-            else:
+
+               
+                    
+            else:           
                 print(msg)
 
         except:
@@ -186,4 +188,3 @@ while True:
     ThreadCount += 1
     print('Thread Number: ' + str(ThreadCount))
 ServerSocket.close()
-

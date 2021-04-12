@@ -51,7 +51,7 @@ def application_contract(date_application, age_people, morbidity):
     send_udp_message2("Yahoo")
     #tx_receipt = web3.eth.waitForTransactionReceipt(tx_hash)
     #print('tx_hash: {}'.format(tx_hash.hex()))
-    print(tx_hash)
+    
 
 def send_token(emis, recep, amount):
     web3.eth.defaultAccount = web3.eth.accounts[emis]
@@ -99,10 +99,11 @@ def view_Tokens_send(account):
     for i in range(4):
         res = contract.functions.getBalance(web3.eth.accounts[account]).call()
         print(res)
+        sa = res
         account += 1
       
         if res != 0:
-            send_token(account,0,res)
+            send_token(account,0,sa)
             
 
 
@@ -130,4 +131,4 @@ def send_udp_message2(msgFromClient):
 
 
 
-view_Tokens(3)
+#view_Tokens_send(0)
