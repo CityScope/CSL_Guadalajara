@@ -11,6 +11,7 @@ model Application
 global{
 	
 	//variable that activates the sending of data to the python server
+<<<<<<< HEAD
 	int send_message_activator <- 0; 
 	int virtual_tokens <- 0;
 	int applied_virtual_tokens <- 0;
@@ -21,22 +22,36 @@ global{
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
+=======
+	int send_message_activator 	<- 0; 
+	int virtual_tokens 					<- 0;
+	int applied_virtual_tokens 		<- 0;
+	int applied_vaccines 				<- 0;
+	
+	int Number_transactions 			<- 0; //variable to update number of transactions
+	int received_transactions 			<- 0;//variable to update the number of transactions received in the python server
+	int ethereum_transactions 		<- 0;//variable to update the number of successful ethereum transactions
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 	list<people> people_priority_1 <- nil update:people where(each.priority = 1);
 	
-	bool enable_sending_data <- true;
+	bool enable_sending_data 	<- false;
+	bool save_to_csv 					<- false;
+	int timeElapsed <- 0 update: int(cycle*step);
 	
-	string case_study <- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
-	file blocks_file <- file("../includes/"+case_study+"/blocks.shp");//apple files
-	file streets_file <- file("../includes/"+case_study+"/roads.shp"); //streets_file files
 	
-	geometry shape <- envelope(streets_file);//Ambient take the form of the streets_file file
-	graph roads_network; //We declare a street graph
-	map<string,rgb> people_color <- ["infected"::#red,"immune"::#gray, "vaccinated"::#green]; //map colors with status
+	string case_study 	<- "Guadalajara/small" among:["Guadalajara/small","Guadalajara/big","Tlaquepaque"];
+	string scenario 		<- "default";
+	file blocks_file 		<- file("../includes/"+case_study+"/blocks.shp");//apple files
+	file streets_file 		<- file("../includes/"+case_study+"/roads.shp"); //streets_file files
+	
+	geometry shape 							<- envelope(streets_file);//Ambient take the form of the streets_file file
+	graph roads_network; 					//We declare a street graph
+	map<string,rgb> people_color 	<- ["infected"::#red,"immune"::#gray, "vaccinated"::#green]; //map colors with status
 	
 	init{
 		create block from:blocks_file with:[cvegeo::string(read("CVEGEO")),pob_60_mas::int(read("P_60YMAS"))]; //we create the block agent
-		create street from:streets_file; //We create the street agent
-		roads_network <- as_edge_graph(street);//We create a graph with the agent street
+		create street from:streets_file; 						//We create the street agent
+		roads_network <- as_edge_graph(street);	//We create a graph with the agent street
 		
 		
 		//UDP server to receive confirmations of successful ethereum transactions
@@ -69,19 +84,19 @@ global{
 		
 		ask block{
 			create people number:int(pob_60_mas/10){
-				self.home <- any_location_in(myself.shape);
-				self.location <- home;
-				self.age <- rnd(61,100);
-				self.target <- home;
+				self.home 		<- any_location_in(myself.shape);
+				self.location 	<- home;
+				self.age 			<- rnd(61,100);
+				self.target 		<- home;
 				do update_priority;
 			}
 		}
 		
 		create people number:50{
-			self.home <- any_location_in(one_of(block));
-			self.location <- home;
-			self.age <- rnd(18,60);
-			self.target <- home;
+			self.home 		<- any_location_in(one_of(block));
+			self.location 	<- home;
+			self.age 			<- rnd(18,60);
+			self.target 		<- home;
 		} 
 		create vaccination_point {
 			physical_tokens <- length(people);
@@ -89,8 +104,8 @@ global{
 		}
 		ask vaccination_point{
 			create manager{
-				location <- myself.location;
-				assigned_to <- myself;
+				location 			<- myself.location;
+				assigned_to 	<- myself;
 			}
 		}
 		
@@ -98,20 +113,47 @@ global{
 	}
 	
 	bool activador <- false;
+<<<<<<< HEAD
 
 	reflex save_data when:activador = true{
+=======
+	
+	reflex main_reflex when:every(#day){
+		//Preguntar cuántos tokens diarios quedan y contrastar con los tokens virtuales (blockchain).
+		//Cuantos tokens quedan y cuantos se han aplicado
+		
+		string msg <- "request";
+		if enable_sending_data{
+			ask TCP_Client{
+				data <- msg;
+				do send_message;
+			}
+		}
+		
+	}
+	
+	reflex save_data when:save_to_csv and every(#day){//activador = true{
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 		int physical_token_counter;
 		
 		ask vaccination_point{
-			physical_token_counter <- physical_tokens;
-			applied_vaccines <- length(people) - physical_tokens;
+			physical_token_counter 	<- physical_tokens;
+			applied_vaccines 				<- length(people) - physical_tokens;
 		}
 		
+<<<<<<< HEAD
 		string data <- ""+cycle+","+current_date.day+","+physical_token_counter+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
 		save data to:"../outputs/results.csv" type:csv rewrite:false;
 		ask UDP_Server2{
 			num <- 0;
 		}
+=======
+		string data <- ""+cycle+","+int(timeElapsed/86400)+","+physical_token_counter+","
+			+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens+","+
+			length(people_priority_1)+","+
+			length(people where(each.age<60 and each.status ="vaccinated"));
+		save data to:"../output/results_"+scenario+".csv" type:csv rewrite:false;
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 		activador <- false;	
 	}
 	
@@ -165,15 +207,20 @@ species vaccination_point{
 	int used_tokens <- 0;
 	
 	block belongs_to;
+<<<<<<< HEAD
 	int applications_per_day <- 30;
 	
 	//int(length(people)/10); 
 	
 	
 	list<people> vaccination_queue <- [];
+=======
+	int applications_per_day 					<- int(length(people)/10);
+	list<people> vaccination_queue 	<- [];
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 	init{
-		belongs_to <- one_of(block where(each.cvegeo = "1403900012183008"));
-		shape <- belongs_to.shape;
+		belongs_to 	<- one_of(block where(each.cvegeo = "1403900012183008"));
+		shape 			<- belongs_to.shape;
 	}
 	
 	reflex daily_update{
@@ -199,9 +246,9 @@ species manager{
 	
 	
 	init{
-		honesty <- float(rnd(100))/100;
-		risk_aversion <- float(rnd(100))/100;
-		reward <- float(rnd(100))/100;
+		honesty 				<- float(rnd(100))/100;
+		risk_aversion 		<- float(rnd(100))/100;
+		reward 				<- float(rnd(100))/100;
 	}
 	
 	float compute_motivation{
@@ -223,8 +270,8 @@ species manager{
 			}
 		}
 		else{
-			int counter <- length(people_priority_1);
-			int index <- 0;
+			int counter 	<- length(people_priority_1);
+			int index 		<- 0;
 			loop times:counter{
 				people current_person <- people_priority_1[index];
 				ask current_person{
@@ -237,6 +284,13 @@ species manager{
 	
 	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 		
+<<<<<<< HEAD
+=======
+		
+		nb_applications 						<- nb_applications + 1;
+		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
+		
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 		if enable_sending_data{
 			//send blockchain data
 			do application_data(assigned_to.vaccination_queue[0]);
@@ -244,11 +298,11 @@ species manager{
 		}
 		
 		ask assigned_to.vaccination_queue[0]{
-			status <- "vaccinated";
-			last_change <- cycle;
-			registered <- false;
-			target <- self.home;
-			immunity <- true;
+			status 				<- "vaccinated";
+			last_change 	<- cycle;
+			registered 		<- false;
+			target 				<- self.home;
+			immunity 		<- true;
 			do update_priority;
 		}
 		
@@ -324,13 +378,19 @@ species people skills:[moving]{
 	vaccination_point vp; //Punto de vacunación que le corresponde
 	
 	init{
+<<<<<<< HEAD
 		morbidity <- flip(0.5);
 		last_change <- cycle;
+=======
+		morbidity 		<- flip(0.5);
+		last_change 	<- cycle;
+		
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 	}
 	
 	action update_target(vaccination_point tgt){
-		vp <- tgt;
-		target <- any_location_in(vp);
+		vp 		<- tgt;
+		target 	<- any_location_in(vp);
 		//do update_path;
 	}	
 	
@@ -485,6 +545,7 @@ species UDP_Server2 skills: [network]
 }
 
 
+<<<<<<< HEAD
 experiment main type:gui{
 	output{
 		monitor "numeroTokens usados" value: length(people where(each.status = "vaccinated"));
@@ -542,3 +603,5 @@ experiment main type:gui{
 	}
 	
 }
+=======
+>>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
