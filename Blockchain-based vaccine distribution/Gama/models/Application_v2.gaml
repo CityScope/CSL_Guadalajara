@@ -11,7 +11,6 @@ model Application
 global{
 	
 	//variable that activates the sending of data to the python server
-<<<<<<< HEAD
 	int send_message_activator <- 0; 
 	int virtual_tokens <- 0;
 	int applied_virtual_tokens <- 0;
@@ -22,16 +21,6 @@ global{
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
 	int ethereum_transactions <- 0;//variable to update the number of successful ethereum transactions
-=======
-	int send_message_activator 	<- 0; 
-	int virtual_tokens 					<- 0;
-	int applied_virtual_tokens 		<- 0;
-	int applied_vaccines 				<- 0;
-	
-	int Number_transactions 			<- 0; //variable to update number of transactions
-	int received_transactions 			<- 0;//variable to update the number of transactions received in the python server
-	int ethereum_transactions 		<- 0;//variable to update the number of successful ethereum transactions
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 	list<people> people_priority_1 <- nil update:people where(each.priority = 1);
 	
 	bool enable_sending_data 	<- false;
@@ -113,10 +102,6 @@ global{
 	}
 	
 	bool activador <- false;
-<<<<<<< HEAD
-
-	reflex save_data when:activador = true{
-=======
 	
 	reflex main_reflex when:every(#day){
 		//Preguntar cuántos tokens diarios quedan y contrastar con los tokens virtuales (blockchain).
@@ -133,7 +118,6 @@ global{
 	}
 	
 	reflex save_data when:save_to_csv and every(#day){//activador = true{
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 		int physical_token_counter;
 		
 		ask vaccination_point{
@@ -141,19 +125,11 @@ global{
 			applied_vaccines 				<- length(people) - physical_tokens;
 		}
 		
-<<<<<<< HEAD
-		string data <- ""+cycle+","+current_date.day+","+physical_token_counter+","+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens;
-		save data to:"../outputs/results.csv" type:csv rewrite:false;
-		ask UDP_Server2{
-			num <- 0;
-		}
-=======
 		string data <- ""+cycle+","+int(timeElapsed/86400)+","+physical_token_counter+","
 			+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens+","+
 			length(people_priority_1)+","+
 			length(people where(each.age<60 and each.status ="vaccinated"));
 		save data to:"../output/results_"+scenario+".csv" type:csv rewrite:false;
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 		activador <- false;	
 	}
 	
@@ -202,22 +178,14 @@ species block{
 
 species vaccination_point{
 	
+	block belongs_to;
+	
 	//Physical token variables
 	int physical_tokens <- 0;
 	int used_tokens <- 0;
 	
-	block belongs_to;
-<<<<<<< HEAD
-	int applications_per_day <- 30;
-	
-	//int(length(people)/10); 
-	
-	
-	list<people> vaccination_queue <- [];
-=======
 	int applications_per_day 					<- int(length(people)/10);
 	list<people> vaccination_queue 	<- [];
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 	init{
 		belongs_to 	<- one_of(block where(each.cvegeo = "1403900012183008"));
 		shape 			<- belongs_to.shape;
@@ -284,13 +252,9 @@ species manager{
 	
 	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 		
-<<<<<<< HEAD
-=======
 		
 		nb_applications 						<- nb_applications + 1;
 		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
-		
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 		if enable_sending_data{
 			//send blockchain data
 			do application_data(assigned_to.vaccination_queue[0]);
@@ -378,14 +342,8 @@ species people skills:[moving]{
 	vaccination_point vp; //Punto de vacunación que le corresponde
 	
 	init{
-<<<<<<< HEAD
-		morbidity <- flip(0.5);
-		last_change <- cycle;
-=======
 		morbidity 		<- flip(0.5);
 		last_change 	<- cycle;
-		
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
 	}
 	
 	action update_target(vaccination_point tgt){
@@ -544,64 +502,3 @@ species UDP_Server2 skills: [network]
 	}
 }
 
-
-<<<<<<< HEAD
-experiment main type:gui{
-	output{
-		monitor "numeroTokens usados" value: length(people where(each.status = "vaccinated"));
-		monitor "Personas vacunadas(Prioridad 2)" value: length(people where(each.age<60 and each.status ="vaccinated"));
-		monitor "personas" value:length(people);
-		layout #split;
-		display GUI type:opengl draw_env:false background:#black{
-			species block aspect:pob_60_mas;
-			species vaccination_point aspect:basic;
-			//species street aspect:gray;
-			species people aspect:basic;
-			species manager aspect:default;
-		}
-		display "Vaccination plan"{
-			chart "Vaccination" type:series y_label:"Number"{
-				data "Used Physical Tokens" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-				data "Priority 1 people" value:length(people_priority_1) color:#blue marker:false;
-				data "Priority 2 vaccinated" value:length(people where(each.age<60 and each.status ="vaccinated")) marker:false;
-			}
-		}
-		/*display "Status_pie"{
-			chart "Status of people" type: pie{
-				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
-				data "immune" value:length(people where(each.status = "immune")) color:people_color["immune"] marker:false;
-				data "vaccinated" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-			}
-		}
-		display "Status_serie"{
-			chart "Status of people" type: series y_label:"Number of people"{
-				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
-				data "immune" value:length(people where(each.status = "immune")) color:people_color["immune"] marker:false;
-				data "vaccinated" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-			}
-		}
-		display "Priority"{
-			chart "Priority of people" type:series y_label:"Number of people"{
-				data "Priority 1" value:length(people where(each.priority = 1)) color:#green marker:false;
-				data "Priority 2" value:length(people where(each.priority = 2)) color:#blue marker:false;
-			}
-		}
-		display "Transactions"{
-			chart "Transactions" type:series y_label:"Number of transactions"{
-				data "GAMA Sent Transactions" value:Number_transactions color:#blue marker:false;
-				data "Transactions received on the Python server" value:received_transactions color:#green marker:false;
-				data "Ethereum Transactions" value:ethereum_transactions color:#red marker:false;
-			}
-		}
-		display "Transactions2"{
-			chart "Transactions" type:histogram y_label:"Number of transactions"{
-				data "GAMA Sent Transactions" value:Number_transactions color:#blue marker:false;
-				data "Transactions received on the Python server" value:received_transactions color:#green marker:false;
-				data "Ethereum Transactions" value:ethereum_transactions color:#red marker:false;
-			}
-		}*/
-	}
-	
-}
-=======
->>>>>>> 5e052d878e4f49b3d11adccf4df6e63768a274dd
