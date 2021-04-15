@@ -12,11 +12,18 @@ global{
 	
 	//variable that activates the sending of data to the python server
 	int send_message_activator <- 0; 
+	int send_message_activator2 <- 0;
 	int virtual_tokens <- 0;
 	int applied_virtual_tokens <- 0;
 	int applied_vaccines <- 0;
 	int num <- 0;
+	bool remove_people <- true;
+	int count_remove <- 0;
+	bool enable_remove <- false;
+
+	
 	int count_applications <- 0;
+	int nb_applications <- 0; //estaba en el manager
 	
 	int Number_transactions <- 0; //variable to update number of transactions
 	int received_transactions <- 0;//variable to update the number of transactions received in the python server
@@ -24,7 +31,7 @@ global{
 	list<people> people_priority_1 <- nil update:people where(each.priority = 1);
 	
 	bool enable_sending_data 	<- false;
-	bool save_to_csv 					<- false;
+	bool save_to_csv 			<- false;
 	int timeElapsed <- 0 update: int(cycle*step);
 	
 	
@@ -73,8 +80,8 @@ global{
 		
 		ask block{
 			create people number:int(pob_60_mas/10){
-				self.home 		<- any_location_in(myself.shape);
-				self.location 	<- home;
+				self.home 			<- any_location_in(myself.shape);
+				self.location 		<- home;
 				self.age 			<- rnd(61,100);
 				self.target 		<- home;
 				do update_priority;
@@ -84,8 +91,8 @@ global{
 		create people number:50{
 			self.home 		<- any_location_in(one_of(block));
 			self.location 	<- home;
-			self.age 			<- rnd(18,60);
-			self.target 		<- home;
+			self.age 		<- rnd(18,60);
+			self.target 	<- home;
 		} 
 		create vaccination_point {
 			physical_tokens <- length(people);
@@ -93,7 +100,7 @@ global{
 		}
 		ask vaccination_point{
 			create manager{
-				location 			<- myself.location;
+				location 		<- myself.location;
 				assigned_to 	<- myself;
 			}
 		}
@@ -101,28 +108,17 @@ global{
 		step <- 5#minute;
 	}
 	
+	
+	//reflex save_data when:save_to_csv and activador=true{//activador = true{
 	bool activador <- false;
-	
-	reflex main_reflex when:every(#day){
-		//Preguntar cuántos tokens diarios quedan y contrastar con los tokens virtuales (blockchain).
-		//Cuantos tokens quedan y cuantos se han aplicado
+	reflex save_data when:activador=true{//activador = true{
 		
-		string msg <- "request";
-		if enable_sending_data{
-			ask TCP_Client{
-				data <- msg;
-				do send_message;
-			}
-		}
-		
-	}
-	
-	reflex save_data when:save_to_csv and every(#day){//activador = true{
+		write "Estoy en el save data";
 		int physical_token_counter;
 		
 		ask vaccination_point{
 			physical_token_counter 	<- physical_tokens;
-			applied_vaccines 				<- length(people) - physical_tokens;
+			applied_vaccines 		<- length(people) - physical_tokens;
 		}
 		
 		string data <- ""+cycle+","+int(timeElapsed/86400)+","+physical_token_counter+","
@@ -130,23 +126,23 @@ global{
 			length(people_priority_1)+","+
 			length(people where(each.age<60 and each.status ="vaccinated"));
 		save data to:"../output/results_"+scenario+".csv" type:csv rewrite:false;
-		activador <- false;	
+		activador <- false;
+			
 	}
 	
-	int day <- 0;
-	reflex day_count when:every(1#day){
-		day <- day + 1;
-		if day > 8{
-		string msg <- "request";
+	reflex newday when:int(timeElapsed/86400) > 8 and every(1#day){
+		send_message_activator 	<- 0;
+		write "Requesting..";
+		string msg <- "request2";
 		if enable_sending_data{
 			ask TCP_Client{
 				data <- msg;
 				do send_message;
 			}
 		}
-		}
 	}
-
+	
+	
 }
 
 //***************************** ROADS AGENT *************************************
@@ -184,7 +180,7 @@ species vaccination_point{
 	int physical_tokens <- 0;
 	int used_tokens <- 0;
 	
-	int applications_per_day 					<- int(length(people)/10);
+	int applications_per_day 	    <- 39;//int(length(people)/10);
 	list<people> vaccination_queue 	<- [];
 	init{
 		belongs_to 	<- one_of(block where(each.cvegeo = "1403900012183008"));
@@ -194,6 +190,7 @@ species vaccination_point{
 	reflex daily_update{
 		used_tokens <- length(people) - physical_tokens;
 	}
+	 
 	
 	action register_person(people the_person){
 		add the_person to:vaccination_queue;
@@ -210,11 +207,11 @@ species manager{
 	float risk_aversion;
 	float reward;
 	vaccination_point assigned_to;
-	int nb_applications <- 0;
+	
 	
 	
 	init{
-		honesty 				<- float(rnd(100))/100;
+		honesty 			<- float(rnd(100))/100;
 		risk_aversion 		<- float(rnd(100))/100;
 		reward 				<- float(rnd(100))/100;
 	}
@@ -250,59 +247,69 @@ species manager{
 		}
 	}
 	
-	reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
+	
+reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 		
 		
-		nb_applications 						<- nb_applications + 1;
-		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
-		if enable_sending_data{
-			//send blockchain data
+		if remove_people{
 			do application_data(assigned_to.vaccination_queue[0]);
-			Number_transactions <- Number_transactions + 1;
-		}
-		
-		ask assigned_to.vaccination_queue[0]{
-			status 				<- "vaccinated";
-			last_change 	<- cycle;
-			registered 		<- false;
-			target 				<- self.home;
-			immunity 		<- true;
-			do update_priority;
-		}
-		
-		
-		assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
-		nb_applications <- nb_applications + 1;
-		count_applications <- count_applications + 1;
-		
-		remove index:0 from:assigned_to.vaccination_queue;
-	}
+			ask assigned_to.vaccination_queue[0]{
+				status 					<- "vaccinated";
+				last_change 			<- cycle;
+				registered 				<- false;
+				target 					<- self.home;
+				immunity 				<- true;
+				do update_priority;
+			}
+			
+			assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
+			nb_applications <- nb_applications + 1;
+			remove index:0 from:assigned_to.vaccination_queue;
+			remove_people  <- false;
+			enable_remove  <- true;
+ 		}			
+}
+
+reflex remove when: enable_remove and remove_people= false and  every(2#cycles){
+	remove_people  <- true;
+}
+
+	
+
 	
 	bool request <- false;
 	//Reflex to get the size of the transacctions list according the number of agents
+	
 	reflex activate_request when:count_applications = assigned_to.applications_per_day{
 		count_applications <- 0;
 		request <- true;
 		if request{
+			write "send";
 			string msg <- "request";
 			if enable_sending_data{
 				ask TCP_Client{
 					data <- msg;
 					do send_message;
 				}	
+			}
+			request <- false;
+			send_message_activator <- 0;
 		}
-		request <- false;
-		}
+
 	}
 
 	//Send data when a vaccine is aplicated
 	string aplication_vaccine(people the_person){
 		int date_application <- 2015;
-		//if the_person.priority = 1{
+		
+		if the_person.priority = 1{
 		num <- num + 1;
 		write num;
 		return "Aplicar" + " " + string(date_application) + " " + string(the_person.age) + " " + the_person.morbidity;	
-		//}
+		
+		}
+		
+		
 	}
 	
 	//Send data of vaccine application
@@ -315,7 +322,9 @@ species manager{
 				send_message_activator <-0;
 				
 			}
+			
 		}
+		
 	}
 	
 	aspect default{
@@ -333,6 +342,9 @@ species people skills:[moving]{
 	bool morbidity; //Morbidity of the people
 	float inmunity_time <- 0#days; //time of infection of the people
 	int priority; //priority of the person to receive the vaccine
+	string message1 <- "";
+	bool m <- false;
+	
 	
 	//Agenda related variables
 	bool immunity <- false;
@@ -388,34 +400,6 @@ species people skills:[moving]{
 		}		
 	}
 	
-	//Reflex of how long you have been infected when you become immune
-	/*reflex when_is_infected when:status = "infected"{
-		inmunity_time <- inmunity_time + step;
-		if inmunity_time > 30#minutes and flip(0.2){
-			status <- "immune";
-			//write "Empieza inmunidad";
-			inmunity_time <- 0#seconds;
-		}
-	}
-	
-	//reflex to determine priority
-	reflex when_immune when:status="immune"{ 
-		inmunity_time <- inmunity_time + step;
-		if age > 59{
-			if inmunity_time > 4#hours{
-				priority <- 1;
-				//write "Tengo prioridada 1";
-			}
-		}
-		if age < 60{
-			if inmunity_time < 4#hours{
-				priority <- 2;
-				//write "Tengo prioridada 2";
-			}
-		}
-	}
-	
-	*/
 	aspect basic{
 		draw circle(10) color:self.age>=60?people_color[status]:(status="vaccinated"?#red:#blue);//people's aspect according to their status
 		//draw string(morbidity) color:#black;
@@ -438,6 +422,8 @@ species TCP_Client skills:[network]{
 	}
 }
 
+
+
 //****************************************UDP SERVERS***************************************
 
 //UDP server that receives the confirmation of the transactions received in the python server
@@ -450,10 +436,9 @@ species UDP_Server skills: [network]
 			message s <- fetch_message();
 			string transactions <- string(s.contents);
 			write transactions;
-			if transactions != " " and transactions != "Yahoo"{
-				received_transactions <- received_transactions + 1;
-				write received_transactions;
-			}
+			write "Soy " + transactions;
+			count_applications 		<- count_applications + 1;
+			remove_people			<- true;
 		}
 	}
 }
@@ -481,24 +466,29 @@ species UDP_Server1 skills: [network]
 //Servidor para recibir los tokens virtuales y los tokens virtuales aplicados
 species UDP_Server2 skills: [network]
 {
-	int num <-0;
+	int num2 <-0;
 	reflex fetch when:has_more_message() and enable_sending_data {	
 		loop while:has_more_message()
 		{
 			message s <- fetch_message();
 			string transactions <- string(s.contents);
 			write transactions;
-			if num = 0{
+			if num2 = 0{
 				virtual_tokens <- int(transactions);
 				write "virtual token" + " "+  virtual_tokens;
-			}else if num = 1{
+				num2 <- num2 + 1;
+			}else if num2 = 1{
 				applied_virtual_tokens <- int(transactions);
 				write "applied virtual token" + " " +applied_virtual_tokens;
 				activador <- true;
+				num2 <- 0;
 			}
-			num <- num + 1;
-			write num;
+			//num2 <- num2 + 1;
+			write num2;
+			
 		}
 	}
 }
+
+
 

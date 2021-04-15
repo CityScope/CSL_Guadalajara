@@ -12,7 +12,7 @@ experiment Several_simulations type:batch until:int(timeElapsed/86400)=60{
 	init{
 		create simulation with:[
 			scenario::"scenario1",
-			enable_sending_data::false,
+			enable_sending_data::true,
 			case_study::"Guadalajara/small",
 			save_to_csv::true
 		];
@@ -20,9 +20,10 @@ experiment Several_simulations type:batch until:int(timeElapsed/86400)=60{
 }
 
 experiment gui type:gui{
-	parameter 'enable_sending_data' var:enable_sending_data <- false;
+	parameter 'enable_sending_data' var:enable_sending_data <- true;
 	parameter 'case_study' var:case_study <- "Guadalajara/small";
 	output{
+		monitor "aplicaciones" value:nb_applications;
 		layout #split;
 		display GUI type:opengl draw_env:false background:#black{
 			species block aspect:pob_60_mas;

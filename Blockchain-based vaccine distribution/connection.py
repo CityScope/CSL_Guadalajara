@@ -151,18 +151,22 @@ def threaded_client(connection,):
                 if spli[0] == "Aplicar":
                     tokens += 1
                     print(tokens)
-                    #send_udp_message(content)
+                    send_udp_message("llegue")
 
                 if spli[0] == "request":
                     day += 1
                     send_tokens_gama(3)
-                    if day == 15:
-                        save_blockchain()
-                    
-                        
-                if spli[0] == "false":
-                    tokens += 1
-                    fake_tokens += 1
+                    #if day == 15:
+                     #   save_blockchain()
+
+                if spli[0] == "request2":
+                    day += 1
+                    prueba.view_Tokens(3)
+                
+                 
+                #if spli[0] == "false":
+                 #   tokens += 1
+                  #  fake_tokens += 1
 
                 
 

@@ -44,7 +44,7 @@ def question1():
 	plt.xticks(np.arange(0,len(current_x),4))
 	#plt.yticks(np.arange(len(physical_tokens),0,4))
 	plt.legend()
-	plt.savefig("Gama/output/q1/vaccination.png")
+	plt.savefig("Gama/output/prueba/vaccination.png")
 
 	plt.clf()
 	current_x = x[0]
@@ -59,7 +59,7 @@ def question1():
 	plt.xticks(np.arange(0,len(current_x),4))
 	#plt.yticks(np.arange(len(physical_tokens),0,4))
 	plt.legend()
-	plt.savefig("Gama/output/q1/tokens.png")
+	plt.savefig("Gama/output/prueba/tokens.png")
 	
 
 
