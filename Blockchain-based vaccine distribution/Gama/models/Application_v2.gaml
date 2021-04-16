@@ -140,9 +140,7 @@ global{
 				do send_message;
 			}
 		}
-	}
-	
-	
+	}	
 }
 
 //***************************** ROADS AGENT *************************************
@@ -180,7 +178,7 @@ species vaccination_point{
 	int physical_tokens <- 0;
 	int used_tokens <- 0;
 	
-	int applications_per_day 	    <- 39;//int(length(people)/10);
+	int applications_per_day 	    <- int(length(people)/10);
 	list<people> vaccination_queue 	<- [];
 	init{
 		belongs_to 	<- one_of(block where(each.cvegeo = "1403900012183008"));
@@ -263,10 +261,10 @@ reflex apply_vaccine when:not empty(assigned_to.vaccination_queue){
 			}
 			
 			assigned_to.physical_tokens <- assigned_to.physical_tokens - 1; //Restar 1 token físico cada que se aplica una vacuna
-			nb_applications <- nb_applications + 1;
+			nb_applications  <- nb_applications + 1;
 			remove index:0 from:assigned_to.vaccination_queue;
-			remove_people  <- false;
-			enable_remove  <- true;
+			remove_people    <- false;
+			enable_remove    <- true;
  		}			
 }
 
@@ -274,13 +272,29 @@ reflex remove when: enable_remove and remove_people= false and  every(2#cycles){
 	remove_people  <- true;
 }
 
-	
 
-	
 	bool request <- false;
 	//Reflex to get the size of the transacctions list according the number of agents
 	
 	reflex activate_request when:count_applications = assigned_to.applications_per_day{
+		count_applications <- 0;
+		request <- true;
+		if request{
+			write "send";
+			string msg <- "request";
+			if enable_sending_data{
+				ask TCP_Client{
+					data <- msg;
+					do send_message;
+				}	
+			}
+			request <- false;
+			send_message_activator <- 0;
+		}
+
+	}
+	
+	reflex last_request when:int(timeElapsed/86400) > 7 and count_applications = 35{
 		count_applications <- 0;
 		request <- true;
 		if request{

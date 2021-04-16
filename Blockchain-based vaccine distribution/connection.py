@@ -156,6 +156,9 @@ def threaded_client(connection,):
                 if spli[0] == "request":
                     day += 1
                     send_tokens_gama(3)
+                    print(day)
+
+
                     #if day == 15:
                      #   save_blockchain()
 
