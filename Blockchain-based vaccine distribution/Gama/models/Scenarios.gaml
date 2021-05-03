@@ -20,7 +20,7 @@ experiment Several_simulations type:batch until:int(timeElapsed/86400)=60{
 }
 
 experiment gui type:gui{
-	parameter 'enable_sending_data' var:enable_sending_data <- true;
+	parameter 'enable_sending_data' var:enable_sending_data <- false;
 	parameter 'case_study' var:case_study <- "Guadalajara/small";
 	output{
 		monitor "aplicaciones" value:nb_applications;
@@ -35,44 +35,11 @@ experiment gui type:gui{
 		display "Vaccination plan"{
 			chart "Vaccination" type:series y_label:"Number"{
 				data "Used Physical Tokens" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-				data "Priority 1 people" value:length(people_priority_1) color:#blue marker:false;
+				data "Priority 1 people" value:length(people where(each.age > 59 and each.status="vaccinated")) color:#blue marker:false;
 				data "Priority 2 vaccinated" value:length(people where(each.age<60 and each.status ="vaccinated")) marker:false;
 			}
 		}
-		/*display "Status_pie"{
-			chart "Status of people" type: pie{
-				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
-				data "immune" value:length(people where(each.status = "immune")) color:people_color["immune"] marker:false;
-				data "vaccinated" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-			}
-		}
-		display "Status_serie"{
-			chart "Status of people" type: series y_label:"Number of people"{
-				data "Infected" value:length(people where(each.status = "infected")) color:people_color["Infected"] marker:false;
-				data "immune" value:length(people where(each.status = "immune")) color:people_color["immune"] marker:false;
-				data "vaccinated" value:length(people where(each.status = "vaccinated")) color:people_color["vaccinated"] marker:false;
-			}
-		}
-		display "Priority"{
-			chart "Priority of people" type:series y_label:"Number of people"{
-				data "Priority 1" value:length(people where(each.priority = 1)) color:#green marker:false;
-				data "Priority 2" value:length(people where(each.priority = 2)) color:#blue marker:false;
-			}
-		}
-		display "Transactions"{
-			chart "Transactions" type:series y_label:"Number of transactions"{
-				data "GAMA Sent Transactions" value:Number_transactions color:#blue marker:false;
-				data "Transactions received on the Python server" value:received_transactions color:#green marker:false;
-				data "Ethereum Transactions" value:ethereum_transactions color:#red marker:false;
-			}
-		}
-		display "Transactions2"{
-			chart "Transactions" type:histogram y_label:"Number of transactions"{
-				data "GAMA Sent Transactions" value:Number_transactions color:#blue marker:false;
-				data "Transactions received on the Python server" value:received_transactions color:#green marker:false;
-				data "Ethereum Transactions" value:ethereum_transactions color:#red marker:false;
-			}
-		}*/
+		
 	}
 	
 }

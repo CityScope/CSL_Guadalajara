@@ -123,11 +123,28 @@ global{
 		
 		string data <- ""+cycle+","+int(timeElapsed/86400)+","+physical_token_counter+","
 			+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens+","+
-			length(people_priority_1)+","+
-			length(people where(each.age<60 and each.status ="vaccinated"));
+			length(people where(each.age > 59 and each.status="vaccinated"))+","+
+			length(people where(each.age<60 and each.status ="vaccinated"))+","+nb_applications;
 		save data to:"../output/results_"+scenario+".csv" type:csv rewrite:false;
 		activador <- false;
 			
+	}
+	
+	reflex save_without_blockchain when: every(1#day) and enable_sending_data = false{
+		write "Estoy en el save data";
+		int physical_token_counter;
+		
+		ask vaccination_point{
+			physical_token_counter 	<- physical_tokens;
+			applied_vaccines 		<- length(people) - physical_tokens;
+		}
+		
+		string data <- ""+cycle+","+int(timeElapsed/86400)+","+physical_token_counter+","
+			+virtual_tokens+","+applied_vaccines+","+applied_virtual_tokens+","+
+			length(people where(each.age > 59 and each.status="vaccinated"))+","+
+			length(people where(each.age<60 and each.status ="vaccinated"))+","+nb_applications;
+		save data to:"../output/results_"+scenario+".csv" type:csv rewrite:false;
+		
 	}
 	
 	reflex newday when:int(timeElapsed/86400) > 8 and every(1#day){
