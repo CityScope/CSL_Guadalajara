@@ -44,6 +44,7 @@ experiment Radar type:gui{
 		layout #split;
 		display Simulation type:opengl background:#black draw_env:false {
 			species block aspect:use_type;
+			grid cell elevation:grid_value*10 triangulation:true;
 			species cityscope_shape aspect:default;
 			species hex_zone aspect:default;
 		}
@@ -96,7 +97,16 @@ experiment Radar type:gui{
 		}
 	}
 }
-
+experiment heatmaps type:gui{
+	output{
+		layout #split  navigator: false editors: false consoles: false toolbars: false tray: false tabs: false;	
+		display main type:opengl background:#black draw_env:false{
+			species block aspect:default;
+			species cityscope_shape aspect:default;
+			grid cell elevation:grid_value*10  triangulation:true;
+		}
+	}
+}
 //
 /*overlay size: { 5 #px, 50 #px } {
 				draw "áéíóúabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.:0123456789([])" at: {0#px,0#px} color:rgb(0,0,0,0) font: font("Arial", 15, #plain);

@@ -38,6 +38,7 @@ global{
 	bool show_use parameter:"Uso de suelo" <- false;
 	bool show_entropy parameter:"Diversidad" <- false;
 	string scenario parameter:"Escenario" <- "a" among:["a","b"];
+	string parameter2show parameter:"Parameter" <- "Education" among:["Education","Health","Culture","Parks"];
 	//bool use_percentage parameter:"Población a partir de porcentaje" <- false;
 	string case_study <- "students";
 	//Diversity
@@ -57,6 +58,9 @@ global{
 	float culture_accessibility <- 0.0;
 	float health_accessibility <- 0.0;
 	float inc <- 1.5;
+	
+	//Visualization
+	
 	
 	init{
 		step <-3#seconds;
@@ -211,6 +215,7 @@ global{
 		scenario_b <- [transport_accessibility,education_accessibility,diversity,hab_emp_ratio,density,health_accessibility,culture_accessibility];
 	}
 	reflex update_scenario_indicators when:cycle=0 or scenario_changed{
+		diffuse var:grid_value on:cell;
 		transport_accessibility <- scenario="a"?sum(people where(each.from_scenario="a") collect(each.ind_mobility_accessibility))/length(people where(each.from_scenario="a")):sum(people collect(each.ind_mobility_accessibility))/length(people);
 		transport_accessibility <- transport_accessibility/max_transport_accessibility;
 		diversity <- sum(hex_zone collect(each.diversity_index))/length(hex_zone);
@@ -224,6 +229,23 @@ global{
 		health_accessibility <- scenario="a"?sum(people where(each.from_scenario="a") collect(each.ind_health_accessibility))/length(people where(each.from_scenario="a")):sum(people collect(each.ind_health_accessibility))/length(people);
 	}
 }
+grid cell width:world.shape.width/80 height:world.shape.height/80{
+	bool valid <- false;
+	float grid_value <- length(people inside(self))/5 update:length(people inside(self))/5;
+	//rgb color <- rgb (10, 252, 227,grid_value)update:rgb(100,20,20,grid_value);
+	/*reflex update_value when:scenario_changed{
+		if parameter2show = "Education"{
+			grid_value <- length(schools at_distance(500))/max_schools_near;
+		}
+		else if parameter2show = "Health"{
+			grid_value <- length(facilities where(each.type="health") at_distance(1000))/max_hospitals_near;
+		}
+		else if parameter2show = "Culture"{
+			grid_value <- length(facilities where(each.type="culture") at_distance(1000))/max_hospitals_near;
+		}
+	}*/
+	rgb color <- hsb(grid_value,0.8,0.8) update:hsb(grid_value,0.8,0.8);
+}
 species facilities{
 	string type;
 	aspect default{
@@ -236,6 +258,12 @@ species school{
 species cityscope_shape{
 	aspect default{
 		draw shape color:#white empty:true;
+	}
+	init{
+		ask cell inside(self){
+			valid <- true;
+		}
+		ask cell where(each.valid = false){do die;}
 	}
 }
 species hex_zone{
