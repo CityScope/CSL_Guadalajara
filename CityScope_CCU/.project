@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>CityScopeGDL</name>
+	<comment></comment>
+	<projects>
+	</projects>
+	<buildSpec>
+		<buildCommand>
+			<name>org.eclipse.xtext.ui.shared.xtextBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+	</buildSpec>
+	<natures>
+		<nature>org.eclipse.xtext.ui.shared.xtextNature</nature>
+		<nature>msi.gama.application.gamaNature</nature>
+	</natures>
+	<linkedResources>
+		<link>
+			<name>external/GEOGRID</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+dungeonmaster+_+GEOGRID</locationURI>
+		</link>
+		<link>
+			<name>external/GEOGRIDDATA</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+GEOGRIDDATA</locationURI>
+		</link>
+		<link>
+			<name>external/copy of GEOGRID</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+GEOGRID</locationURI>
+		</link>
+		<link>
+			<name>external/copy of GEOGRIDDATA</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+lomas+_+GEOGRIDDATA</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of GEOGRID</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+lomas+_+GEOGRID</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of GEOGRIDDATA</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_ccu+_+GEOGRIDDATA</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of copy of GEOGRID</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_ccu+_+GEOGRID</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of copy of GEOGRIDDATA</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+ccu_udg+_+GEOGRIDDATA</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of copy of copy of GEOGRID</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+ccu_udg+_+GEOGRID</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of copy of header</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+ccu_udg+_+GEOGRID+_+properties+_+header</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of copy of types</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+ccu_udg+_+GEOGRID+_+properties+_+types</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of hashes</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+ccu_udg+_+meta+_+hashes</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of header</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_ccu+_+GEOGRID+_+properties+_+header</locationURI>
+		</link>
+		<link>
+			<name>external/copy of copy of types</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_ccu+_+GEOGRID+_+properties+_+types</locationURI>
+		</link>
+		<link>
+			<name>external/copy of hashes</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_ccu+_+meta+_+hashes</locationURI>
+		</link>
+		<link>
+			<name>external/copy of header</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+lomas+_+GEOGRID+_+properties+_+header</locationURI>
+		</link>
+		<link>
+			<name>external/copy of types</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+lomas+_+GEOGRID+_+properties+_+types</locationURI>
+		</link>
+		<link>
+			<name>external/hashes</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+meta+_+hashes</locationURI>
+		</link>
+		<link>
+			<name>external/header</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+GEOGRID+_+properties+_+header</locationURI>
+		</link>
+		<link>
+			<name>external/types</name>
+			<type>1</type>
+			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+GEOGRID+_+properties+_+types</locationURI>
+		</link>
+	</linkedResources>
+</projectDescription>
