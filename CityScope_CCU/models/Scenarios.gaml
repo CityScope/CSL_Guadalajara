@@ -14,19 +14,19 @@ experiment Bar type:gui{
 	parameter "case study" var:case_study <- "students";
 	output{
 		layout #split;
-		display Simulation type:opengl background:#black draw_env:false {
+		display Simulation type:opengl background:#black axes:false {
 			species block aspect:use_type;
 			species cityscope_shape aspect:default;
 			species hex_zone aspect:default;
 			//species facilities aspect:default;
 		}
-		display Movement type:opengl background:#black draw_env:false{
+		display Movement type:opengl background:#black axes:false{
 			species block aspect:use_type;
 			species roads aspect:default;
 			species cityscope_shape aspect:default;
 			species people aspect:mobility_accessibility;
 		}
-		display Overall type:java2D background:#black draw_env:false refresh:every(10#cycles) toolbar:false{
+		display Overall type:java2D background:#black axes:false refresh:every(10#cycles) toolbar:false{
 			chart "Desempeño" y_range:[0,1.0] y_tick_line_visible:false type:histogram background:#black color:#white label_font:font("Arial",20,#plain) legend_font:font("Arial",20,#plain) title_font:font("Arial",30,#plain) 	tick_font:font("Arial",20,#plain)
 			series_label_position: xaxis tick_line_color:#white axes:#white x_tick_values_visible:false x_serie:[0,1]  
 			{
@@ -42,17 +42,19 @@ experiment Radar type:gui{
 	parameter "case study" var:case_study <- "students";
 	output{
 		layout #split;
-		display Simulation type:opengl background:#black draw_env:false {
+		display Simulation fullscreen:0 type:opengl background:#black axes:false {
+			camera 'default' location: {1506.8077,1652.527,1900.3065} target: first(cityscope_shape);
 			species block aspect:use_type;
-			grid cell elevation:grid_value*10 triangulation:true;
+			//grid cell elevation:grid_value*10 triangulation:true;
 			species cityscope_shape aspect:default;
 			species hex_zone aspect:default;
 		}
-		display Movement type:opengl background:#black draw_env:false{
+		display Movement type:opengl background:#black axes:false{
+			
 			species cityscope_shape aspect:default;
 			species people aspect:mobility_accessibility;
 		}
-		display Overall type:java2D background:#black draw_env:false refresh:every(10#cycles) toolbar:false{
+		display Overall type:java2D background:#black axes:false refresh:every(10#cycles) toolbar:false{
 			chart "Desempeño" y_range:[0,2.0] y_tick_line_visible:false type:histogram background:#black color:#white label_font:font("Arial",20,#plain) legend_font:font("Arial",20,#plain) title_font:font("Arial",30,#plain) 	tick_font:font("Arial",20,#plain)
 			series_label_position: xaxis tick_line_color:#white axes:#white x_tick_values_visible:false x_serie:[0,1]  
 			{
@@ -79,7 +81,7 @@ experiment Radar type:gui{
 			}*/
 
 		}
-		display Scenario_a type: java2D
+		display Scenario type: java2D
 		{
 			
 			chart "Desempeño" type: radar x_serie_labels: ["Acceso a mobilidad","Acceso a educación","Diversidad","Relación habitación/empleo","Densidad", "Acceso a salud","Acceso a cultura"] series_label_position: xaxis
@@ -100,10 +102,27 @@ experiment Radar type:gui{
 experiment heatmaps type:gui{
 	output{
 		layout #split  navigator: false editors: false consoles: false toolbars: false tray: false tabs: false;	
-		display main type:opengl background:#black draw_env:false{
+		display main fullscreen:0 type:opengl background:#black axes:false {
+			//camera 'default' location: {1483.2293,1605.1187,1876.7192} target: {1482.8086,1609.4685,0.0};
+			//camera 'default' location: {1501.8542,1654.7707,2129.8051} target: {1505.0975,1617.6992,0.0};
+			//camera 'default' location: {1634.0271,1676.6725,1926.4032} target: {1636.9654,1643.6656,0.0};
+			//camera 'default' location: {1440.7459,1608.8097,1876.7243} target: first(cityscope_shape);
+			//camera 'default' location: {1476.3569,1623.8344,1914.5964} target: {1477.5138,1611.2745,0.0};
+			//camera 'default' location: {1480.2669,1623.8619,1886.0203} target: {1481.4065,1611.7894,0.0};
+			camera 'default' location: {1480.2725,1623.8021,1876.6855} target: {1481.4065,1611.7894,0.0};
+			species cityscope_shape aspect:default ;
 			species block aspect:default;
-			species cityscope_shape aspect:default;
-			grid cell elevation:grid_value*10  triangulation:true;
+			grid cell;
+			//mesh heat grayscale:true scale: 0.05	 triangulation: true smooth: true;
+			event a action:select_scenario_a;
+			event b action:select_scenario_b;
+			event d action:heatmap_diversity;
+			event D action:heatmap_density;
+			event e action:heatmap_education;
+			event h action:heatmap_health;
+			event c action:heatmap_culture;
+			event u action:land_use;
+			event s action:satellite;
 		}
 	}
 }

@@ -16,6 +16,7 @@ global{
 	file roads_shp <- file(dcu_roads_filename);
 	file denue_shp <- file(denue_filename);
 	file blocks_shp <- file(ppdu_blocks_filemane);
+	file ppdu_blocks_shp <- file(ppdu_s2_blocks_filename);
 	file entry_points_shp <- file(entry_points_filename);
 	file transport_shp <- file(dcu_transport);
 	file massive_shp <- file(dcu_massive_transport_filename);
@@ -60,13 +61,13 @@ global{
 	float inc <- 1.5;
 	
 	//Visualization
-	
-	
+	bool show_satellite <- false;
+	image_file satellite_png <- image_file(satellite_file);
 	init{
 		step <-3#seconds;
 		starting_date <- date("2022-3-7 06:00:00");
 		create roads from:roads_shp;
-		road_network <- as_edge_graph(roads);
+		//road_network <- as_edge_graph(roads);
 		create dcu from: limits_shp;
 		create transport_station from:transport_shp;
 		create facilities from:facilities_schools_shp with:[type::"school"];
@@ -107,12 +108,12 @@ global{
 			
 		}
 		
-		ask schools{
+		/*ask schools{
 			ask block{
 				path the_path <- path_between(road_network,self,myself);
 				add string(myself.id)::the_path to:route_to;
 			}
-		}
+		}*/
 		create people from:students_shp with:[my_activity_id::string(read("school")),home_block_id::string(read("home_block")),mobility_mode::string(read("mobility_m"))]{
 			activity_type <- "student";
 			home <- location;
@@ -160,6 +161,8 @@ global{
 		max_entropy_a <- max(hex_zone collect(each.diversity_index_a));
 		max_entropy_b <- max(hex_zone collect(each.diversity_index_b));
 		create cityscope_shape from:cityscope_shp;
+		
+		//Clean files
 		blocks_shp <- [];
 		roads_shp <- [];
 		denue_shp <- [];
@@ -175,9 +178,16 @@ global{
 		facilities_schools_shp <- [];
 		facilities_green_shp <- [];
 	}
-	reflex update_inc when:(cycle=5){
-		inc <- 0.1;
-	}
+	action select_scenario_a{scenario <- "a";ask cell{do update_grid_value(self.current_indicator);}}
+	action select_scenario_b{scenario <- "b";ask cell{do update_grid_value(self.current_indicator);}}
+	action heatmap_diversity{ask cell{do update_grid_value("diversity");}}
+	action heatmap_density{ask cell{do update_grid_value("density");}}
+	action heatmap_health{ask cell{do update_grid_value("health");}}
+	action heatmap_culture{ask cell{do update_grid_value("culture");}}
+	action heatmap_education{ask cell{do update_grid_value("education");}}
+	action land_use{show_use <- show_use? false:true;}
+	action satellite{show_satellite <- show_satellite?false:true;}
+	reflex update_inc when:(cycle=5){	inc <- 0.1;}
 	reflex check_changes{
 		if scenario !=last_scenario{
 			scenario_changed <- true;
@@ -215,7 +225,6 @@ global{
 		scenario_b <- [transport_accessibility,education_accessibility,diversity,hab_emp_ratio,density,health_accessibility,culture_accessibility];
 	}
 	reflex update_scenario_indicators when:cycle=0 or scenario_changed{
-		diffuse var:grid_value on:cell;
 		transport_accessibility <- scenario="a"?sum(people where(each.from_scenario="a") collect(each.ind_mobility_accessibility))/length(people where(each.from_scenario="a")):sum(people collect(each.ind_mobility_accessibility))/length(people);
 		transport_accessibility <- transport_accessibility/max_transport_accessibility;
 		diversity <- sum(hex_zone collect(each.diversity_index))/length(hex_zone);
@@ -227,12 +236,66 @@ global{
 		education_accessibility <- scenario="a"?sum(people where(each.from_scenario="a") collect(each.ind_education_accessibility))/length(people where(each.from_scenario="a")):sum(people collect(each.ind_education_accessibility))/length(people);
 		culture_accessibility <- scenario="a"?sum(people where(each.from_scenario="a") collect(each.ind_culture_accessibility))/length(people where(each.from_scenario="a")):sum(people collect(each.ind_culture_accessibility))/length(people);
 		health_accessibility <- scenario="a"?sum(people where(each.from_scenario="a") collect(each.ind_health_accessibility))/length(people where(each.from_scenario="a")):sum(people collect(each.ind_health_accessibility))/length(people);
+		//heat <- field(grid);
 	}
 }
-grid cell width:world.shape.width/80 height:world.shape.height/80{
+grid cell width:world.shape.width/40 height:world.shape.height/40 parallel:true{
+	string current_indicator <- "";
+	/*int nb_culture_near2me <- 0;	
+	int nb_hospitals_near2me <- 0;
+	int  nb_schools_near2me <- 0;*/
 	bool valid <- false;
-	float grid_value <- length(people inside(self))/5 update:length(people inside(self))/5;
-	//rgb color <- rgb (10, 252, 227,grid_value)update:rgb(100,20,20,grid_value);
+	float grid_value <- 0.0;
+	rgb color <- rgb (10, 252, 227,grid_value);
+	action update_grid_value(string indicator){
+		if indicator = "diversity"{
+			current_indicator <- indicator;
+			hex_zone my_hex_zone <- hex_zone closest_to self;
+			grid_value <- my_hex_zone.diversity_index/max_diversity;
+		}
+		else if indicator = "density"{
+			current_indicator <- indicator;
+			block my_block <- block closest_to self;
+			grid_value <- my_block.my_density/max_density;
+		}
+		else if indicator = "education"{
+			current_indicator <- indicator;
+			list<people> people_here <- people inside self;
+			if not empty(people_here){
+				grid_value <- sum(people_here collect(each.ind_education_accessibility))/length(people_here);
+			}
+		}
+		else if indicator= "culture"{
+			current_indicator <- indicator;
+			list<people> people_here <- people inside self;
+			if not empty(people_here){
+				grid_value <- sum(people_here collect(each.ind_culture_accessibility))/length(people_here);
+			}
+		}
+		else if indicator = "health"{
+			current_indicator <- indicator;
+			list<people> people_here <- people inside self;
+			if not empty(people_here){
+				grid_value <- sum(people_here collect(each.ind_health_accessibility))/length(people_here);
+			}
+		}
+		/*if grid_value <= 0.2{color <- rgb(180,20,20,grid_value);}
+		else if grid_value <= 0.4{color <- rgb (207, 99, 33,grid_value);}
+		else if grid_value <= 0.6{color <- rgb (120, 220, 153,grid_value);}
+		else {color <- rgb(43,131,186,grid_value);}*/
+		if show_use{
+			color <- rgb(0,0,0,0.0);
+		}
+		else{
+			color <- grid_value<0.5?rgb(180,30,30,0.6-grid_value):rgb (10, 252, 227,grid_value);
+		}
+		
+	}
+	/*reflex init_values when:cycle=1{
+		nb_culture_near2me <- length(facilities where(each.type="culture") at_distance(1000));	
+		nb_hospitals_near2me <- length(facilities where(each.type="health") at_distance(1000));
+		nb_schools_near2me <- length(schools at_distance(500));
+	}*/
 	/*reflex update_value when:scenario_changed{
 		if parameter2show = "Education"{
 			grid_value <- length(schools at_distance(500))/max_schools_near;
@@ -244,7 +307,7 @@ grid cell width:world.shape.width/80 height:world.shape.height/80{
 			grid_value <- length(facilities where(each.type="culture") at_distance(1000))/max_hospitals_near;
 		}
 	}*/
-	rgb color <- hsb(grid_value,0.8,0.8) update:hsb(grid_value,0.8,0.8);
+	//rgb color <- hsb(grid_value,0.8,0.8) update:hsb(grid_value,0.8,0.8);
 }
 species facilities{
 	string type;
@@ -257,7 +320,8 @@ species school{
 }
 species cityscope_shape{
 	aspect default{
-		draw shape color:#white empty:true;
+		//if show_satellite{draw shape wireframe:false border:#gray texture:satellite_png;}
+		draw shape wireframe:true border:#gray;
 	}
 	init{
 		ask cell inside(self){
@@ -274,7 +338,7 @@ species hex_zone{
 	list<block> my_blocks;
 	init{
 		area <- shape.area;
-		my_blocks <- block at_distance(200#m);
+		my_blocks <- block at_distance(300#m);
 		map<string,int> count_map;
 		loop key over:use_type_color.keys{
 			add key::0 to:count_map;
@@ -366,7 +430,7 @@ species people skills:[moving] parallel:true{
 		ind_health_accessibility <- nb_hospitals_near2me / max_hospitals_near;
 		ind_culture_accessibility <- nb_culture_near2me / max_culture_near;
 	}
-	reflex update_agenda when: empty(agenda_day) or (every(#day) and (!(from_scenario="b") or ((from_scenario="b") and scenario="b"))){
+	/*reflex update_agenda when: empty(agenda_day) or (every(#day) and (!(from_scenario="b") or ((from_scenario="b") and scenario="b"))){
 		agenda_day <- [];
 		point the_activity_location <- my_activity.location;
 		int activity_time <- rnd(2,12);
@@ -400,7 +464,8 @@ species people skills:[moving] parallel:true{
 		if location = my_route[point_index]{
 			point_index<- point_index + 1;
 		}
-	}
+	}*/
+	
 	string select_mobility_mode{
 		float sum <- 0.0;
 		float selection <- rnd(100)/100;
@@ -430,7 +495,7 @@ species people skills:[moving] parallel:true{
 
 species dcu{
 	aspect default{
-		draw shape color:#blue empty:true;
+		draw shape wireframe:true border:#gray;
 	} 
 }
 
@@ -450,12 +515,30 @@ species block{
 	rgb my_color <- rgb(0,0,0,0.3);
 	
 	aspect default{
-		if not show_use{
+		if  from_scenario="a" and scenario="a"{
+			if show_use{
+				my_color <- use in use_type_color.keys?use_type_color[use]:rgb(0,0,0,0);
+				my_color <- rgb(my_color.red,my_color.green,my_color.blue,0.6);
+			}
+			else{
+				my_color <- rgb(0,0,0,0.3);
+			}
 			draw shape color:my_color border:#white;
+		}
+		if from_scenario="b" and scenario="b"{
+			if show_use{
+				my_color <- use in use_type_color.keys?use_type_color[use]:rgb(0,0,0,0);
+				my_color <- rgb(my_color.red,my_color.green,my_color.blue,0.6);
+			}
+			else{
+				my_color <- rgb(0,0,0,0.3);
+			}
+			draw shape color:my_color border:#white;
+			
 		}
 	}
 	aspect only_border{
-		draw shape empty:true border:#white;
+		draw shape wireframe:true border:#white;
 	}
 	reflex update_density_index when:scenario_changed{
 		if scenario = "a"{

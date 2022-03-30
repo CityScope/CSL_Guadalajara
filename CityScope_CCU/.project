@@ -27,6 +27,11 @@
 			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+GEOGRIDDATA</locationURI>
 		</link>
 		<link>
+			<name>external/Scenarios_lomas.gaml</name>
+			<type>1</type>
+			<location>C:/Users/gamaa/Documents/Software Projects/Simulation projects/Recorridos/models/Scenarios_lomas.gaml</location>
+		</link>
+		<link>
 			<name>external/copy of GEOGRID</name>
 			<type>1</type>
 			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+udg_dcu+_+GEOGRID</locationURI>
@@ -100,6 +105,11 @@
 			<name>external/copy of types</name>
 			<type>1</type>
 			<locationURI>CACHE_LOC/cityio.media.mit.edu+_++_+api+_+table+_+lomas+_+GEOGRID+_+properties+_+types</locationURI>
+		</link>
+		<link>
+			<name>external/core_lomas.gaml</name>
+			<type>1</type>
+			<location>C:/Users/gamaa/Documents/Software Projects/Simulation projects/Recorridos/models/core_lomas.gaml</location>
 		</link>
 		<link>
 			<name>external/hashes</name>

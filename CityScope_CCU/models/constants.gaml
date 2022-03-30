@@ -9,14 +9,20 @@
 model constants
 
 global{
+	string main_shp_path <- "../includes/shp/";
+		
+	
 	string denue_filename <- "../includes/shp/denue_2021a.shp";
 	string entry_points_filename <- "../includes/shp/entry_points.shp";
 	string dcu_limits_filename <- "../includes/shp/poligono_dcu.shp";
 	string inegi_blocks_filename <- "../includes/shp/dcu_manzanas_inegi_2020.shp";
 	string ppdu_blocks_filemane <- "../includes/shp/ppdu_dcu_2012.shp";
-	string dcu_roads_filename <- "../includes/shp/roads_dcu.shp";
+	
+	
+	//string dcu_roads_filename <- "../includes/shp/roads_dcu.shp";
+	
 	string dcu_osm_roads_filename <- "../includes/shp/red_vial_osm_dcu.shp";
-	string dcu_transport <- "../includes/shp/paradas_transporte_publico_dcu.shp";
+	string dcu_transport_filename <- "../includes/shp/paradas_transporte_publico_dcu.shp";
 	string dcu_massive_transport_filename <- "../includes/shp/estaciones_transporte_masivo_dcu.shp";
 	string dcu_cycling_way_filename <- "../includes/shp/ciclovias_dcu.shp";
 	string dcu_blocks_residencial_filename <- "../includes/shp/dcu_manzanas_inegi_2020_residencial.shp";
@@ -29,6 +35,7 @@ global{
 	string facilities_health_filename <- "../includes/shp/equipamiento/salud.shp";
 	string facilities_schools_filename <- "../includes/shp/equipamiento/escuelas.shp";
 	string facilities_greenarea_filename <- "../includes/shp/equipamiento/dcu_eespacio_verde_equipamiento_deportivo.shp";
+	string satellite_file <- "../includes/img/ccu_satellite.png";
 	//map<string,float> mobility_speed <- ["pedestrian"::1.4,"bicycle"::3.0,"bus"::4.1,"car"::5.0];
 	map<string,rgb> use_type_color <- ["Espacios verdes abiertos y recreativos"::#seagreen,
 																	"Alojamiento temporal"::#yellow,
@@ -128,12 +135,20 @@ global{
 	];
 	float students_percentage <- 0.28;
 	float workers_percentage <- 0.45;
-	float max_diversity <- 2.5;
+	float max_diversity <- 6.0;
 	float max_transport_accessibility <- 1.0;
 	float max_hab_emp_ratio <- 20.0;
 	float max_density <- 20.0;
 	int max_schools_near <- 4;
 	int max_hospitals_near <-4;
 	int max_culture_near <- 10;
+	
+	
+	//New version
+	
+	float distance2health <- 200#m;
+	float distance2culture <- 200#m;
+	float distance2education <- 200#m;
+	
 	
 }
