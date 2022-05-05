@@ -17,6 +17,7 @@ global{
 	string dcu_limits_filename <- "../includes/shp/poligono_dcu.shp";
 	string inegi_blocks_filename <- "../includes/shp/dcu_manzanas_inegi_2020.shp";
 	string ppdu_blocks_filemane <- "../includes/shp/ppdu_dcu_2012.shp";
+	string new_limits_filename <- "../includes/shp/poligono_1_1000/mesa_dcu_v1.shp";
 	
 	
 	//string dcu_roads_filename <- "../includes/shp/roads_dcu.shp";
@@ -30,7 +31,7 @@ global{
 	//string zonification_ccu_filename <- "../includes/shp/zonificacion_pm_ccu_v1.shp";
 	string zonification_ccu_filename <- "../includes/shp/zonificacion_pm_ccu_v6.shp";
 	string hex_zones_filename <- "../includes/shp/idu_hex_dcu.shp";
-	string cityscope_shape_filename <- "../includes/shp/poligono_1_1000/poligono_mesa_dcu.shp";
+	string cityscope_shape_filename <- "../includes/shp/poligono_1_1000/mesa_dcu_v1.shp";
 	string facilities_culture_filename <- "../includes/shp/equipamiento/cultura.shp";
 	string facilities_health_filename <- "../includes/shp/equipamiento/salud.shp";
 	string facilities_schools_filename <- "../includes/shp/equipamiento/escuelas.shp";
@@ -133,8 +134,15 @@ global{
 		"Automóvil propio"::16.3,
 		"Otro"::5.0
 	];
+	
+	
 	float students_percentage <- 0.28;
 	float workers_percentage <- 0.45;
+	
+	
+	
+	//Edge values
+	
 	float max_diversity <- 6.0;
 	float max_transport_accessibility <- 1.0;
 	float max_hab_emp_ratio <- 20.0;
@@ -143,12 +151,23 @@ global{
 	int max_hospitals_near <-4;
 	int max_culture_near <- 10;
 	
+	int min_culture_equipment 		<- 3;
+	int min_education_equipment 	<- 4;
+	int min_health_equipment 		<- 3;
+	int min_sports_equipment 		<- 1;
+	
+	float distance2health 		<- 200#m;
+	float distance2culture 		<- 200#m;
+	float distance2education 	<- 200#m;
+	
 	
 	//New version
 	
-	float distance2health <- 200#m;
-	float distance2culture <- 200#m;
-	float distance2education <- 200#m;
-	
+	int spread_value <- 10;
+	float spread_factor <- 0.2;
+	map<string,int> education_distances <- ["Preescolar"::500,"Primaria"::750,"Secundaria"::1000,"Bachillerato"::5000,"Licenciatura"::10000];
+	map<string,int> culture_distances <- ["Auditorio Estatal"::10000,"Auditorio Municipal"::2340,"Biblioteca Municipal"::1500,"Casa de la Cultura"::10000,"Escuela Integral de Artes"::10000,"Museo Local"::10000,"Teatro"::10000,"Biblioteca pública estatal"::10000];
+	map<string,int> health_distances <- ["Centro de Sallud Urbano (SSA)"::1000,"Clínica Hospitall"::10000,"Consultorio Privadol"::1000,"Hospital Privado"::10000,"Hospital General"::10000,"Hospital General (SSA)l"::10000,"Laboratorio"::10000,"Unidad de Medicina Familiar"::5000,"Unidad de Medicina Familiar (IMSS)"::5000];
+	map<string,int> sports_distances <- ["Equipamiento deportivo"::1000];
 	
 }
