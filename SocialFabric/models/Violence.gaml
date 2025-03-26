@@ -9,18 +9,18 @@ model Violence
 
 global torus:false{
 
-	string case_study parameter: 'Case Study:' category: 'Initialization' <-"fivecorners" among:["fivecorners", "miramar", "tijuana"];
-	int  nbPeople parameter: 'Number of people:' category: 'Initialization' <- 250 min: 100 max: 1000;  
-	int  nbOffender parameter: 'Number of offender:' category: 'Initialization' <- 20 min: 10 max: 100;
-	int  cellSize parameter: 'Cells Size:' category: 'Initialization' <- 150 min: 50 max: 1000;  
-	float mu parameter: 'Mu:' category: 'Model' <- 1.0 min: 0.0 max: 2.0;
-	int offenderPerception parameter: 'Offender Perception Distance:' category: 'Model' <- 50 min: 10 max: 500;
-	float offenderSpeed parameter: 'Offender Speed:' category: 'Model' <- 10.0 min: 5.0 max: 15.0;
-	float peopleSpeed parameter: 'People Speed:' category: 'Model' <- 10.0 min: 5.0 max: 15.0;
-	bool showPerception parameter: "Show Perception" category: "Visualization" <-false;
-	bool showNbCrime parameter: "Show Number of Crime" category: "Visualization" <-false;
-	bool showOffenderTarget parameter: "Show Offender Target" category: "Visualization" <-false;
-	bool showOffenderPath parameter: "Show Offender Path" category: "Visualization" <-false;
+	string case_study<-"fivecorners" among:["fivecorners", "miramar", "tijuana"] ;//parameter: 'Case Study:' category: 'Initialization'  ;
+	int  nbPeople <- 250 min: 100 max: 1000;//parameter: 'Number of people:' category: 'Initialization' ;  
+	int  nbOffender <- 20 min: 10 max: 100;// parameter: 'Number of offender:' category: 'Initialization' ;
+	int  cellSize <- 150 min: 50 max: 1000 ;//parameter: 'Cells Size:' category: 'Initialization' ;  
+	float mu <- 1.0 min: 0.0 max: 2.0;//parameter: 'Mu:' category: 'Model' ;
+	int offenderPerception<- 50 min: 10 max: 500 ;//parameter: 'Offender Perception Distance:' category: 'Model' ;
+	float offenderSpeed <- 10.0 min: 5.0 max: 15.0;//parameter: 'Offender Speed:' category: 'Model' ;
+	float peopleSpeed <- 10.0 min: 5.0 max: 15.0;//parameter: 'People Speed:' category: 'Model' ;
+	bool showPerception<-false ;//parameter: "Show Perception" category: "Visualization" ;
+	bool showNbCrime <-false;//parameter: "Show Number of Crime" category: "Visualization" ;
+	bool showOffenderTarget<-false;// parameter: "Show Offender Target" category: "Visualization" ;
+	bool showOffenderPath <-false;// parameter: "Show Offender Path" category: "Visualization" ;
 	int totalCrimes;
 	map<string, rgb> color_type <- ["offender"::rgb(255,255,0), "victim"::rgb (255, 0, 255), "people"::rgb (10, 192, 83,255)];
 	
@@ -56,7 +56,7 @@ grid cell width:world.shape.width/cellSize height:world.shape.height/cellSize{
 		draw shape color:rgb(current_people_inside*100, 0,0) border:rgb(current_people_inside*100, 0, 0);	
 	}
 	aspect tension{
-		draw shape color:rgb(tension*50, 0, 0) border:rgb(tension*50, 0, 0) empty:false;
+		draw shape color:rgb(tension*50, 0, 0) border:rgb(tension*50, 0, 0) wireframe:false;
 	}
 }
 
@@ -123,7 +123,7 @@ species offender skills:[moving]{
 		  draw circle(10) color:color_type["offender"];		
 		}
 		if(showPerception){
-			draw circle(offenderPerception) empty:true color:#red;
+			draw circle(offenderPerception) wireframe:true color:#red;
 			draw circle(offenderPerception) color:rgb(255,0,0,0.5);
 		}
 		if(showNbCrime){

@@ -14,18 +14,18 @@ import "Constants.gaml"
 global torus:false{
 
 	//Model parameters
-	bool showInteractions parameter: "Show interactions" category:"Model" <- false;
-	bool save_results parameter: "Save results" category: "Model" <- false;
+	bool showInteractions <- false;// parameter: "Show interactions" category:"Model" ;
+	bool save_results <- false;// parameter: "Save results" category: "Model";
 	//Visualization parameters
-	bool showBuildings parameter: "Buildings" category: "Visualization" <- true;
-	bool showPerception parameter: "Perception" category: "Visualization" <- false;
-	bool showEncounters parameter: "Encounters" category: "Visualization" <- false;
-	string agent_mode parameter: "Indicator" category: "Visualization" <- "Overall perception" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation","Social cohesion","Anti-social behavior","Age range", "Layers"];
-	bool showOverallPerception parameter: "Perception on streets" category:"Visualization" <- false;
+	bool showBuildings<- true;// parameter: "Buildings" category: "Visualization" ;
+	bool showPerception <- false;// parameter: "Perception" category: "Visualization" ;
+	bool showEncounters  <- false;//parameter: "Encounters" category: "Visualization";
+	string agent_mode  <- "Overall perception" among:["Overall perception","Police","Natural surveillance","Lighting","Public transportation","Street condition", "Physical isolation","Social cohesion","Anti-social behavior","Age range", "Layers"];// parameter: "Indicator" category: "Visualization"
+	bool showOverallPerception <- false;// parameter: "Perception on streets" category:"Visualization";
 	//Heatmap
-	bool compute_heatmap parameter: "Compute heatmap" category: "Heatmap" <- true;
-	string heatmap_type parameter: "Heatmap type" category:"Heatmap" <- "user_point" among:["user_point","street"];
-	string heatmap_street_name parameter: "Street" category:"Heatmap" <- "Camino a la Mesa";
+	bool compute_heatmap <- true;// parameter: "Compute heatmap" category: "Heatmap" <- true;
+	string heatmap_type <- "user_point" among:["user_point","street"];// parameter: "Heatmap type" category:"Heatmap";
+	string heatmap_street_name<- "Camino a la Mesa";// parameter: "Street" category:"Heatmap" <- "Camino a la Mesa";
 	
 	//people related parameters
 	int nb_people <- 1000;
@@ -359,7 +359,7 @@ species commerce{
 	float altitude;
 	float longitude;
 	aspect default{
-		draw circle(10) color:rgb (134, 217, 11,255) empty:true depth:10.0;
+		draw circle(10) color:rgb (134, 217, 11,255) wireframe:true depth:10.0;
 	}
 }
 
@@ -386,7 +386,7 @@ species building {
 	}
 }
 
-species people skills:[escape_pedestrian]{
+species people skills:[pedestrian]{
 	
 	//Importar datos de csv para rutinas, relaciones, perfil.
 	//Perception related variables
@@ -421,7 +421,6 @@ species people skills:[escape_pedestrian]{
 	float current_max <- 0.0;
 	
 	init{
-		pedestrian_model <- "SFM";
 		obstacle_species <- [block_front,people];
 		write "created"+name;
 		home <- building[rnd(length(building)-1)].location;
@@ -766,7 +765,7 @@ species people skills:[escape_pedestrian]{
 				draw line(location, connection.location) color:rgb (255, 255, 255,255);
 			}
 		}		
-		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,0) at:location empty:true;}
+		if showPerception{draw circle(vision_radius) color:rgb(255-(255*safety_perception),255*safety_perception,0) at:location wireframe:true;}
 		if showInteractions{
 			loop connection over:social_circle{
 				draw curve(location, connection.location,1.0, 200, 90) color:rgb (79, 194, 210,100);
@@ -877,7 +876,7 @@ grid cell file:grid_data{
 species crime{
 	string type;
 	aspect default{
-		draw circle(30) color:#red empty:true width:1.0;
+		draw circle(30) color:#red wireframe:true width:1.0;
 	}
 }
 
@@ -886,7 +885,7 @@ experiment Overall type:gui until:(cycle/60)=24{
 		layout #split;
 		//display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
 		//display "Main" type: opengl draw_env:false camera_pos: {world.shape.width*cos(cycle),world.shape.height*sin(cycle),1328.5421} camera_look_pos: {world.shape.width/2,world.shape.height/2,500} camera_up_vector: {0,1,0} {
-		display "Main" type: opengl draw_env:false{
+		display "Main" type: opengl axes:false{
 			
 			//species road aspect:street_of_interest;
 			//species crime aspect:default refresh:false;
