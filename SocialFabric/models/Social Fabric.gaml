@@ -16,6 +16,28 @@ global torus:false{
 	//Model parameters
 	bool showInteractions <- false;// parameter: "Show interactions" category:"Model" ;
 	bool save_results <- false;// parameter: "Save results" category: "Model";
+	float ind_police_patrols <-0;
+	float ind_other_people <-0;
+	float ind_sunlight <- 0;
+	float ind_lighting_uniformity_radius <- 0;
+	float ind_safe_mobility <- 0;
+	float ind_pavement_condition <- 0;
+	float ind_physical_isolation <- 0;
+	float ind_social_cohesion <- 0;
+	float ind_crime <- 0;
+	map<string,float> indicators_values_global <- [													
+			"police_patrols"::0,//C1
+			"other_people"::0,//C1
+			"sunlight"::0,
+			"lighting_uniformity_radius"::0,//C2
+			"safe_mobility"::0,//C3			
+			"pavement_condition"::0,//C4
+			"physical_isolation"::0,//C5
+			"social_cohesion"::0,//C6
+			"crime"::0//C7
+			];  	//Global indicators
+	float init_value <- 1.0;
+	
 	//Visualization parameters
 	bool showBuildings<- true;// parameter: "Buildings" category: "Visualization" ;
 	bool showPerception <- false;// parameter: "Perception" category: "Visualization" ;
@@ -467,7 +489,7 @@ species people skills:[pedestrian]{
 			];	
 		}
 		
-		float init_value <- 1.0;
+		
 		indicators_values <- [													
 			"police_patrols"::init_value,//C1
 			"other_people"::init_value,//C1
@@ -881,6 +903,27 @@ species crime{
 }
 
 experiment Overall type:gui until:(cycle/60)=24{
+	/* 
+	 "police_patrols"::0,//C1
+			"other_people"::0,//C1
+			"sunlight"::0,
+			"lighting_uniformity_radius"::0,//C2
+			"safe_mobility"::0,//C3			
+			"pavement_condition"::0,//C4
+			"physical_isolation"::0,//C5
+			"social_cohesion"::0,//C6
+			"crime"::0//C7
+	  */
+	parameter "police_patrols" var:ind_police_patrols <- init_value min:0 max:1;
+	parameter "other_people" var:ind_other_people <- init_value min:0 max:1;
+	parameter "sunlight_" var:ind_sunlight <- init_value min:0 max:1;
+	parameter "lighting_uniformity_radius" var:ind_lighting_uniformity_radius <- init_value min:0 max:1;
+	parameter "safe_mobility" var:ind_safe_mobility <- init_value min:0 max:1;
+	parameter "pavement_condition" var:ind_pavement_condition <- init_value min:0 max:1;
+	parameter "physical_isolation" var:ind_physical_isolation <- init_value min:0 max:1;
+	parameter "social_cohesion" var:ind_social_cohesion <- init_value min:0 max:1;
+	parameter "crime" var:ind_crime <- init_value min:0 max:1;
+	
 	output{
 		layout #split;
 		//display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
