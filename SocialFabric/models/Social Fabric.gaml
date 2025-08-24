@@ -16,15 +16,15 @@ global torus:false{
 	//Model parameters
 	bool showInteractions <- false;// parameter: "Show interactions" category:"Model" ;
 	bool save_results <- false;// parameter: "Save results" category: "Model";
-	float ind_police_patrols <-0;
-	float ind_other_people <-0;
-	float ind_sunlight <- 0;
-	float ind_lighting_uniformity_radius <- 0;
-	float ind_safe_mobility <- 0;
-	float ind_pavement_condition <- 0;
-	float ind_physical_isolation <- 0;
-	float ind_social_cohesion <- 0;
-	float ind_crime <- 0;
+	float ind_police_patrols <-0.0;
+	float ind_other_people <-0.0;
+	float ind_sunlight <- 0.0;
+	float ind_lighting_uniformity_radius <- 0.0;
+	float ind_safe_mobility <- 0.0;
+	float ind_pavement_condition <- 0.0;
+	float ind_physical_isolation <- 0.0;
+	float ind_social_cohesion <- 0.0;
+	float ind_crime <- 0.0;
 	map<string,float> indicators_values_global <- [													
 			"police_patrols"::0,//C1
 			"other_people"::0,//C1
@@ -37,6 +37,7 @@ global torus:false{
 			"crime"::0//C7
 			];  	//Global indicators
 	float init_value <- 1.0;
+	float lamp_lightning_radius <- 15.0;
 	
 	//Visualization parameters
 	bool showBuildings<- true;// parameter: "Buildings" category: "Visualization" ;
@@ -48,6 +49,8 @@ global torus:false{
 	bool compute_heatmap <- true;// parameter: "Compute heatmap" category: "Heatmap" <- true;
 	string heatmap_type <- "user_point" among:["user_point","street"];// parameter: "Heatmap type" category:"Heatmap";
 	string heatmap_street_name<- "Camino a la Mesa";// parameter: "Street" category:"Heatmap" <- "Camino a la Mesa";
+	bool enableScreenShot_1 <- true;
+	bool enableScreenShot_2 <- false;
 	
 	//people related parameters
 	int nb_people <- 1000;
@@ -73,7 +76,7 @@ global torus:false{
 	list<heatmap> enabled_cells <- [];
 	map<string,list<heatmap>> case_studies;
 	map<string,float> mean_values;
-	
+	field uso <- field(300,300);
 	init{
 		step <- 1#minute;
 		create block_front from:block_fronts_file with:[block_frontID::string(read("CVEGEO")), road_id::int(read("CVEVIAL")),int_lightning::int(read("ALUMPUB_")), int_paving::int(read("RECUCALL_")), int_sideWalk::int(read("BANQUETA_")), int_access::int(read("ACESOPER_"))]{ do init_condition; }
@@ -129,6 +132,11 @@ global torus:false{
 		}
 	}
 	
+	reflex update_heatmap{
+		uso <- uso * 1.0;
+		diffuse var:uso_calle on:uso proportion:0.95;
+	}
+	
 	reflex update_case_studies when:every(1#minutes) and compute_heatmap{
 		loop key over:case_studies.keys{
 			float sum <- 0.0;
@@ -154,6 +162,18 @@ global torus:false{
 		}
 		save csv_output to:"../results/heatmap_history.csv" rewrite:false type:csv;
 	}*/
+	
+	reflex take_screenshot when:current_date.hour = 15 and enableScreenShot_1{
+		do pause;
+		enableScreenShot_1 <- false;
+		enableScreenShot_2 <- true;
+	}
+	reflex take_screenshot2 when:current_date.hour = 23 and enableScreenShot_2{
+		do pause;
+		enableScreenShot_1 <- true;
+		enableScreenShot_2 <- false;
+	}
+	
 	list<heatmap> getStreetCells(string street){
 		list<road> streets_of_interest <- road where(each.street_name=street);
 		list<heatmap> result <- [];
@@ -248,8 +268,13 @@ global torus:false{
 					float_access <- bf_element.int_access/2;
 					do init_condition;
 				}
+				road tmp <- one_of(auxroads);
+				create lamp with:[location::tmp.location];
 			}
 		}
+	}
+	reflex update_network_weights{
+		road_network <- road_network with_weights(road as_map(each::each.weight));
 	}
 	
 }
@@ -275,6 +300,11 @@ species road{
 	aspect default{draw shape color: rgb(255-(127*valuation),0+(127*valuation),50);}
 	//aspect default{draw shape color: rgb(255*weight,50,50,100);}
 	aspect street_of_interest{draw shape color: street_color;}
+	reflex updateRoadWeight{
+		valuation <- (float_lightning+float_paving+float_sideWalk+float_access)/4;
+		weight <- valuation; //Normalization of valuation 0 to 1 according to the model
+		weight <- 100*(1 - weight); //In weighted networks, a path is shorter than other if it has smaller value. 0 <- best road, 1 <- worst road
+	}
 }
 
 grid heatmap width:35 height:35 parallel:true neighbors:8{
@@ -314,6 +344,12 @@ species public_transportation{
 	}
 }
 
+species lamp{
+	aspect default{
+		draw circle(15) color:rgb(254,215,100,0.5);
+	}
+}
+
 species block{
 	string blockID;
 	string str_lightning;
@@ -348,18 +384,18 @@ species block_front{
 	float valuation;
 	string road_name;
 	action init_condition{
-		if int_lightning = 1 { int_lightning <-2; }
-			else if int_lightning = 2 { int_lightning <- 0; }
-			else{ int_lightning <- 1; }
-			if int_paving = 1 or int_paving = 2 { int_paving <- 2; }
-			else if int_paving = 2 { int_paving <- 0; }
-			else{ int_paving <- 1; }
-			if int_sideWalk = 1 {int_sideWalk <- 2;}
-			else if int_sideWalk = 2 {int_sideWalk <- 0;}
-			else {int_sideWalk <- 1;}
-			if int_access = 2 {int_access <- 2;}
-			else {int_access <- 0;}
-			do init_Valuation;
+		if int_lightning = 1 { int_lightning <-2;}
+		else if int_lightning = 2 { int_lightning <- 0; }
+		else{ int_lightning <- 1; }
+		if int_paving = 1 or int_paving = 2 { int_paving <- 2; }
+		else if int_paving = 2 { int_paving <- 0; }
+		else{ int_paving <- 1; }
+		if int_sideWalk = 1 {int_sideWalk <- 2;}
+		else if int_sideWalk = 2 {int_sideWalk <- 0;}
+		else {int_sideWalk <- 1;}
+		if int_access = 2 {int_access <- 2;}
+		else {int_access <- 0;}
+		do init_Valuation;
 	}
 	action init_Valuation{
 		valuation <- 0.0;
@@ -370,7 +406,7 @@ species block_front{
 		if showOverallPerception{
 			draw shape color: rgb(255-(255*valuation),0+(255*valuation),0,255);
 		}
-		else {draw shape color: rgb (83, 83, 83,125);}
+		else {draw shape color: #white;}//rgb (83, 83, 83,125);}
 	}
 }
 
@@ -426,6 +462,7 @@ species people skills:[pedestrian]{
 	point home;
 	map<date,point> agenda_day;
 	point target;
+	path my_path;
 	
 	//personal variables
 	point location_3d <- {location.x,location.y,location.z};
@@ -534,8 +571,16 @@ species people skills:[pedestrian]{
 		target <- agenda_day.values[0];
 		agenda_day>>first(agenda_day);
 	}
-	reflex mobility when:target!=location{
-		do goto target:target on:road_network;
+	reflex mobility when:target!=nil{
+		
+		my_path <- goto(target:target, on:road_network, return_path:true);
+		if(my_path!=nil and my_path.shape!=nil){
+			uso[my_path.shape.location] <- uso[my_path.shape.location] +10;
+		}
+		if location=target{
+			target <- nil;
+		}
+		//do goto target:target on:road_network;
 	}
 	action update_encounters{//} when:mod(cycle,6)=0 and flip(0.5){
 		encounters <- [];
@@ -612,12 +657,22 @@ species people skills:[pedestrian]{
 		//C2__VISIVILITY
 		//lighting_uniformity_radius
 			//TO DO: differenciate between daytime and nighttime
-		road auxLighting <- road closest_to(self);
-		//put auxLighting!=[]? auxLighting[0].float_lightning:0.0 at:"lighting_uniformity_radius" in:indicators_values;
-		put auxLighting.float_lightning at:"lighting_uniformity_radius" in:indicators_values;
-		if indicators_values["lighting_uniformity_radius"]<0{
-				write name+":lighting_uniformity_radius: "+indicators_values["lighting_uniformity_radius"];	
+		list<lamp> closestLamps <- lamp at_distance(lamp_lightning_radius);
+		if(closestLamps!=[]){
+			lamp tmpLamp <- one_of(closestLamps);
+			road auxLighting <- road closest_to(self);
+			//put auxLighting!=[]? auxLighting[0].float_lightning:0.0 at:"lighting_uniformity_radius" in:indicators_values;
+			float resultLightingIndicator <- 1-(distance_between(topology(world),[self,tmpLamp])/lamp_lightning_radius);
+			//put auxLighting.float_lightning at:"lighting_uniformity_radius" in:indicators_values;
+			put resultLightingIndicator at:"lighting_uniformity_radius" in:indicators_values;
+			if indicators_values["lighting_uniformity_radius"]<0{
+					write name+":lighting_uniformity_radius: "+indicators_values["lighting_uniformity_radius"];	
+			}
 		}
+		else{
+			put 0.0 at:"lighting_uniformity_radius" in:indicators_values;
+		}
+		
 		
 		//C3__SAFE MOBILITY
 		list<point> auxMobility <- geometry(public_transportation) closest_points_with(self);
@@ -902,7 +957,7 @@ species crime{
 	}
 }
 
-experiment Overall type:gui until:(cycle/60)=24{
+experiment Overall type:gui until:(cycle/60)=24 {
 	/* 
 	 "police_patrols"::0,//C1
 			"other_people"::0,//C1
@@ -914,21 +969,21 @@ experiment Overall type:gui until:(cycle/60)=24{
 			"social_cohesion"::0,//C6
 			"crime"::0//C7
 	  */
-	parameter "police_patrols" var:ind_police_patrols <- init_value min:0 max:1;
-	parameter "other_people" var:ind_other_people <- init_value min:0 max:1;
-	parameter "sunlight_" var:ind_sunlight <- init_value min:0 max:1;
-	parameter "lighting_uniformity_radius" var:ind_lighting_uniformity_radius <- init_value min:0 max:1;
-	parameter "safe_mobility" var:ind_safe_mobility <- init_value min:0 max:1;
-	parameter "pavement_condition" var:ind_pavement_condition <- init_value min:0 max:1;
-	parameter "physical_isolation" var:ind_physical_isolation <- init_value min:0 max:1;
-	parameter "social_cohesion" var:ind_social_cohesion <- init_value min:0 max:1;
-	parameter "crime" var:ind_crime <- init_value min:0 max:1;
-	
+	parameter "police_patrols" var:ind_police_patrols <- init_value min:0.0 max:1.0;
+	parameter "other_people" var:ind_other_people <- init_value min:0.0 max:1.0;
+	parameter "sunlight_" var:ind_sunlight <- init_value min:0.0 max:1.0;
+	parameter "lighting_uniformity_radius" var:ind_lighting_uniformity_radius <- init_value min:0.0 max:1.0;
+	parameter "safe_mobility" var:ind_safe_mobility <- init_value min:0.0 max:1.0;
+	parameter "pavement_condition" var:ind_pavement_condition <- init_value min:0.0 max:1.0;
+	parameter "physical_isolation" var:ind_physical_isolation <- init_value min:0.0 max:1.0;
+	parameter "social_cohesion" var:ind_social_cohesion <- init_value min:0.0 max:1.0;
+	parameter "crime" var:ind_crime <- init_value min:0.0 max:1.0;
+	list<rgb> pal <- palette([ #black, #green, #yellow, #orange, #orange, #red, #red, #red]);
 	output{
 		layout #split;
 		//display "Main" type: opengl background:rgb(sunlight/5*255,sunlight/5*255,sunlight/5*255) draw_env:false{
 		//display "Main" type: opengl draw_env:false camera_pos: {world.shape.width*cos(cycle),world.shape.height*sin(cycle),1328.5421} camera_look_pos: {world.shape.width/2,world.shape.height/2,500} camera_up_vector: {0,1,0} {
-		display "Main" type: opengl axes:false{
+		display "Main" type: opengl axes:false background:rgb(100,100,100,0.5){
 			
 			//species road aspect:street_of_interest;
 			//species crime aspect:default refresh:false;
@@ -937,9 +992,11 @@ experiment Overall type:gui until:(cycle/60)=24{
 			//species public_transportation aspect:default refresh:false;
 			//species heatmap aspect:default;
 			species block_front aspect:default refresh:false;
+			species lamp aspect:default;
 			species police_patrol aspect:flat_obj;
 			//species building aspect:flat refresh:false;
 			species people aspect:flat;
+			mesh uso scale: 9 triangulation: true transparency: 0.4 smooth: 3 above: 0.8 color: pal;
 			overlay position: { 40#px, 30#px } size: { 0,0} background: # black transparency: 0.5 border: #black {
 				string minutes;
 				if current_date.minute < 10{minutes <- "0"+current_date.minute; }
